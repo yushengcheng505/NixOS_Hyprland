@@ -438,6 +438,7 @@ in
     chromeProxyDesktop
     chromeDirectDesktop
     pkgs.python3
+    pkgs.gh
     pkgs.btop
   ];
 
