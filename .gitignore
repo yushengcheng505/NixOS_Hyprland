@@ -1,0 +1,5 @@
+# Local backups and installer artifacts; system configuration stays tracked.
+*.before-*
+.hyprland-honor-fmbp-backup-*/
+*.deb
+*.distro

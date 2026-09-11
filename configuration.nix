@@ -261,22 +261,6 @@ let
     icon = "google-chrome";
     categories = [ "Network" "WebBrowser" ];
   };
-
-  throneProxySetup = pkgs.writeShellScript "throne-proxy-setup" ''
-    set -eu
-    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file "$HOME/.config/kioslaverc" \
-      --group "Proxy Settings" --key ProxyType 1
-    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file "$HOME/.config/kioslaverc" \
-      --group "Proxy Settings" --key httpProxy "http://127.0.0.1 2080"
-    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file "$HOME/.config/kioslaverc" \
-      --group "Proxy Settings" --key httpsProxy "http://127.0.0.1 2080"
-    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file "$HOME/.config/kioslaverc" \
-      --group "Proxy Settings" --key ftpProxy "http://127.0.0.1 2080"
-    ${pkgs.kdePackages.kconfig}/bin/kwriteconfig6 --file "$HOME/.config/kioslaverc" \
-      --group "Proxy Settings" --key socksProxy "socks://127.0.0.1 2080"
-    ${pkgs.dbus}/bin/dbus-send --session --type=signal /KIO/Scheduler \
-      org.kde.KIO.Scheduler.reparseSlaveConfiguration string:"" || true
-  '';
 in
 {
   imports =
@@ -297,7 +281,7 @@ in
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   boot.initrd.prepend = [ "${honorDsdtInitrd}" ];
-  boot.kernelParams = [ "i8042.dumbkbd=1" ];
+  boot.kernelParams = [ "i8042.dumbkbd=1" "i915.enable_psr=0" ];
   boot.kernelModules = [ "i8042" "tun" ];
 
   zramSwap = {
@@ -413,7 +397,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     serviceConfig = {
-      ExecStartPre = [ throneProxySetup ];
+      Environment = [ "GTK_MODULES=" ];
       ExecStart = "/run/current-system/sw/bin/Throne";
       Restart = "on-failure";
       RestartSec = 3;
@@ -441,39 +425,12 @@ in
     pkgs.btop
   ];
 
-  environment.etc."xdg/powerdevilrc".text = ''
-    [AC][Display]
-    DimDisplayWhenIdle=false
-    TurnOffDisplayWhenIdle=true
-    TurnOffDisplayIdleTimeoutSec=300
-    LockBeforeTurnOffDisplay=false
-    [AC][SuspendAndShutdown]
-    AutoSuspendAction=0
-
-    [Battery][Display]
-    DimDisplayWhenIdle=false
-    TurnOffDisplayWhenIdle=true
-    TurnOffDisplayIdleTimeoutSec=300
-    LockBeforeTurnOffDisplay=false
-    [Battery][SuspendAndShutdown]
-    AutoSuspendAction=0
-
-    [LowBattery][Display]
-    DimDisplayWhenIdle=false
-    TurnOffDisplayWhenIdle=true
-    TurnOffDisplayIdleTimeoutSec=300
-    LockBeforeTurnOffDisplay=false
-    [LowBattery][SuspendAndShutdown]
-    AutoSuspendAction=0
-  '';
-
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users."klenko" = {
     isNormalUser = true;
     description = "Klenko";
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [
-      kdePackages.kate
     #  thunderbird
     ];
   };

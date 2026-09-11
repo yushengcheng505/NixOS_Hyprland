@@ -48,6 +48,9 @@ in
 
   # The laptop uses Intel i915/Arc graphics; this keeps VA-API and Wayland
   # acceleration available without adding NVIDIA-specific settings.
+  # Provides battery state to Quickshell and WirePlumber.
+  services.upower.enable = true;
+
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
