@@ -17,6 +17,21 @@ let
     (cd root && find kernel -print | cpio -o -H newc --reproducible) > "$out"
   '';
 
+  # Run Spotify as a native Wayland client.  This avoids blurry XWayland
+  # scaling on the laptop's fractional-scale display.
+  spotifyWayland = pkgs.symlinkJoin {
+    name = "spotify-wayland";
+    paths = [ pkgs.spotify ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      rm -f "$out/bin/spotify"
+      makeWrapper "${pkgs.spotify}/bin/spotify" "$out/bin/spotify" \
+        --add-flags "--enable-features=UseOzonePlatform" \
+        --add-flags "--ozone-platform=wayland" \
+        --add-flags "--proxy-server=http://127.0.0.1:2080"
+    '';
+  };
+
   discordUnwrapped = pkgs.stdenvNoCC.mkDerivation {
     pname = "discord-unwrapped";
     version = "1.0.157";
@@ -282,7 +297,9 @@ in
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   boot.initrd.prepend = [ "${honorDsdtInitrd}" ];
-  boot.kernelParams = [ "i8042.dumbkbd=1" "i915.enable_psr=0" ];
+  # Keep the PS/2 keyboard writable so the kernel can control Caps Lock LEDs.
+  # The previous i8042.dumbkbd=1 workaround disabled those LED commands.
+  boot.kernelParams = [ "i915.enable_psr=0" ];
   boot.kernelModules = [ "i8042" "tun" ];
 
   zramSwap = {
@@ -417,7 +434,7 @@ in
     pkgs.codex
     chatgpt
     pkgs.zed-editor
-    pkgs.spotify
+    spotifyWayland
     pkgs.nodejs
     pkgs.google-chrome
     chromeAuto

@@ -113,6 +113,7 @@ in
     fish
     starship
     papirus-icon-theme
+    bibata-cursors
     adw-gtk3
     qt6.qtbase
     qt6.qtdeclarative
@@ -131,7 +132,9 @@ in
   ];
 
   environment.sessionVariables = {
+    XCURSOR_THEME = "Bibata-Modern-Classic";
     XCURSOR_SIZE = "24";
+    HYPRCURSOR_THEME = "Bibata-Modern-Classic";
     HYPRCURSOR_SIZE = "24";
   };
 }
