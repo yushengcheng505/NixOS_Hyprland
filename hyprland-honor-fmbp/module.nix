@@ -46,6 +46,34 @@ in
     };
   };
 
+  # The direct SDDM Hyprland session does not pull in
+  # graphical-session.target (the UWSM session does).  Start both portal
+  # processes from the user manager so Wayland screen sharing remains
+  # available to Discord even in the direct session.
+  systemd.user.services.xdg-desktop-portal-hyprland-direct = {
+    unitConfig = {
+      Description = "Hyprland desktop portal for direct sessions";
+    };
+    serviceConfig = {
+      ExecStart = "${pkgs.xdg-desktop-portal-hyprland}/libexec/xdg-desktop-portal-hyprland";
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    wantedBy = [ "default.target" ];
+  };
+
+  systemd.user.services.xdg-desktop-portal-direct = {
+    unitConfig = {
+      Description = "XDG desktop portal for direct Hyprland sessions";
+    };
+    serviceConfig = {
+      ExecStart = "${pkgs.xdg-desktop-portal}/libexec/xdg-desktop-portal";
+      Restart = "always";
+      RestartSec = 2;
+    };
+    wantedBy = [ "default.target" ];
+  };
+
   # The laptop uses Intel i915/Arc graphics; this keeps VA-API and Wayland
   # acceleration available without adding NVIDIA-specific settings.
   # Provides battery state to Quickshell and WirePlumber.

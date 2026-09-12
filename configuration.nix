@@ -19,7 +19,7 @@ let
 
   discordUnwrapped = pkgs.stdenvNoCC.mkDerivation {
     pname = "discord-unwrapped";
-    version = "1.0.156";
+    version = "1.0.157";
     src = ./discord-full.distro;
     nativeBuildInputs = [ pkgs.brotli pkgs.gnutar ];
     dontUnpack = true;
@@ -27,6 +27,7 @@ let
       mkdir -p $out/opt/Discord
       brotli -d < $src | tar xf - --strip-components=1 -C $out/opt/Discord
       chmod +x $out/opt/Discord/Discord
+      sed -i "s|\"version\": \"1.0.157\"|\"version\": \"1.0.157\", \"disableUpdater\": true|" $out/opt/Discord/resources/build_info.json
       mkdir -p $out/share/icons/hicolor/256x256/apps
       cp $out/opt/Discord/discord.png $out/share/icons/hicolor/256x256/apps/discord.png
     '';
@@ -44,7 +45,7 @@ let
   discord = pkgs.buildFHSEnv {
     name = "discord";
     pname = "discord";
-    version = "1.0.156";
+    version = "1.0.157";
     executableName = "Discord";
     targetPkgs = pkgs: with pkgs; [
       alsa-lib atk at-spi2-atk at-spi2-core cairo cups dbus expat
@@ -370,6 +371,25 @@ in
 
   security.polkit.enable = true;
   security.polkit.enablePkexecWrapper = true;
+  # Permit the local active desktop user to use the power controls from the
+  # Quickshell launcher without an unavailable terminal authentication prompt.
+  security.polkit.extraConfig = ''
+    polkit.addRule(function(action, subject) {
+      var powerActions = [
+        "org.freedesktop.login1.reboot",
+        "org.freedesktop.login1.reboot-multiple-sessions",
+        "org.freedesktop.login1.power-off",
+        "org.freedesktop.login1.power-off-multiple-sessions",
+        "org.freedesktop.login1.suspend",
+        "org.freedesktop.login1.suspend-multiple-sessions",
+        "org.freedesktop.login1.hibernate",
+        "org.freedesktop.login1.hibernate-multiple-sessions"
+      ];
+      if (subject.user == "klenko" && powerActions.indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+      }
+    });
+  '';
 
   programs.throne = {
     enable = true;
@@ -390,20 +410,6 @@ in
     wantedBy = [ "default.target" ];
   };
 
-  systemd.user.services.throne-autostart = {
-    unitConfig = {
-      Description = "Start Throne with the saved profile state";
-      After = [ "graphical-session.target" "throne-pac.service" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    serviceConfig = {
-      Environment = [ "GTK_MODULES=" ];
-      ExecStart = "/run/current-system/sw/bin/Throne";
-      Restart = "on-failure";
-      RestartSec = 3;
-    };
-    wantedBy = [ "graphical-session.target" ];
-  };
 
   environment.systemPackages = [
     discord
