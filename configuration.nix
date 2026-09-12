@@ -279,6 +279,28 @@ let
   };
 in
 {
+  # Keep the user's Hyprland configuration linked to the tracked dotfiles.
+  system.activationScripts.hyprlandConfigLink = {
+    deps = [ "users" ];
+    text = ''
+      hyprlandSource="/etc/nixos/dotfiles/hypr"
+      hyprlandTarget="/home/klenko/.config/hypr"
+
+      if [ -L "$hyprlandTarget" ]; then
+        target=$(readlink "$hyprlandTarget")
+        if [ "$target" != "$hyprlandSource" ]; then
+          echo "Refusing to replace $hyprlandTarget: unexpected symlink target $target" >&2
+          exit 1
+        fi
+      elif [ -e "$hyprlandTarget" ]; then
+        echo "Refusing to replace existing $hyprlandTarget; move it aside before switching." >&2
+        exit 1
+      else
+        ln -s "$hyprlandSource" "$hyprlandTarget"
+      fi
+    '';
+  };
+
   imports =
     [       ./hyprland-honor-fmbp/module.nix
 # Include the results of the hardware scan.
