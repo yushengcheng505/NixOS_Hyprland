@@ -309,6 +309,9 @@ in
 
   services.openssh.enable = true;
 
+  # Enable the modern Nix CLI and flake support system-wide.
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
   networking.firewall.allowedTCPPorts = [ 22 ];
 
   # Use the systemd-boot EFI boot loader.
@@ -468,6 +471,7 @@ in
     pkgs.python3
     pkgs.gh
     pkgs.btop
+    pkgs.libreoffice-qt-stable
   ];
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
