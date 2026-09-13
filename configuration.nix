@@ -301,6 +301,29 @@ in
     '';
   };
 
+  # Keep the user's Quickshell configuration linked to the tracked dotfiles.
+  system.activationScripts.quickshellConfigLink = {
+    deps = [ "users" ];
+    text = ''
+      quickshellSource="/etc/nixos/dotfiles/quickshell/cartoon-shell"
+      quickshellTarget="/home/klenko/.config/quickshell/cartoon-shell"
+
+      if [ -L "$quickshellTarget" ]; then
+        target=$(readlink "$quickshellTarget")
+        if [ "$target" != "$quickshellSource" ]; then
+          echo "Refusing to replace $quickshellTarget: unexpected symlink target $target" >&2
+          exit 1
+        fi
+      elif [ -e "$quickshellTarget" ]; then
+        echo "Refusing to replace existing $quickshellTarget; move it aside before switching." >&2
+        exit 1
+      else
+        mkdir -p "$(dirname "$quickshellTarget")"
+        ln -s "$quickshellSource" "$quickshellTarget"
+      fi
+    '';
+  };
+
   imports =
     [       ./hyprland-honor-fmbp/module.nix
 # Include the results of the hardware scan.
