@@ -21,8 +21,9 @@ Rectangle {
     property string selectedCategory: "All"
     property int currentIndex: 0
 
-    // Danh sách tất cả các Category hiển thị trên giao diện
-    readonly property var categoryList: ["All", "Accessories", "Programming", "Graphics", "Internet", "Office", "Sound & Video", "System", "Preferences", "Other"]
+    // Categories shown in the launcher. Development apps take priority over
+    // the generic Utility category below, so they stay in Programming.
+    readonly property var categoryList: ["All", "Programming", "Graphics", "Internet", "Office", "Sound & Video", "System", "Preferences", "Other"]
 
     function getAppCategory(desktopEntry) {
         if (!desktopEntry || !desktopEntry.categories)
@@ -30,8 +31,6 @@ Rectangle {
 
         const cats = desktopEntry.categories;
 
-        if (cats.includes("Utility"))
-            return "Accessories";
         if (cats.includes("Development"))
             return "Programming";
         if (cats.includes("Graphics"))
