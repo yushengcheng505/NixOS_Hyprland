@@ -49,7 +49,7 @@ Rectangle {
         }
 
         CustomToggleSwitch {
-            adapter: root.adapter.enabled
+            adapter: root.adapter ? root.adapter.enabled : false
             onClicked: {
                 if (root.adapter) {
                     root.adapter.enabled = !root.adapter.enabled;
