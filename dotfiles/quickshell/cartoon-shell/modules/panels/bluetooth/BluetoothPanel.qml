@@ -244,6 +244,8 @@ PanelWindow {
                 // When enabling adapter, set default modes
                 adapter.pairable = true;
                 adapter.discoverable = false; // Default not discoverable
+                adapter.discovering = true;
+                scanTimer.restart();
             }
         }
         function onDiscoveringChanged() {
@@ -265,6 +267,19 @@ PanelWindow {
         // Ensure adapter is pairable on startup
         if (adapter && adapter.enabled) {
             adapter.pairable = true;
+            adapter.discovering = true;
+            scanTimer.restart();
+        }
+    }
+
+    // Refresh discovery whenever the panel becomes visible.
+    Connections {
+        target: VisibleService
+        function onBluetoothChanged() {
+            if (VisibleService.bluetooth && adapter?.enabled) {
+                adapter.discovering = true;
+                scanTimer.restart();
+            }
         }
     }
 }
