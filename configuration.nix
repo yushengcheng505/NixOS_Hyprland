@@ -335,6 +335,12 @@ in
   # Enable the modern Nix CLI and flake support system-wide.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # Provide the BlueZ D-Bus service used by Quickshell's Bluetooth module.
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
+
   networking.firewall.allowedTCPPorts = [ 22 ];
 
   # Use the systemd-boot EFI boot loader.
@@ -495,6 +501,7 @@ in
     pkgs.gh
     pkgs.btop
     pkgs.libreoffice-qt-stable
+    pkgs.bluez
   ];
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
