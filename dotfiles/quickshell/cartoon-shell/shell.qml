@@ -27,6 +27,8 @@ ShellRoot {
     }
     property var theme: ThemeService.theme
     property var lang: LanguageService.translations
+    // Initialize the Bluetooth backend even when its panel is not loaded.
+    property var bluetoothService: BluetoothService
 
     property bool isVertical: Settings.bar.position === "left" || Settings.bar.position === "right"
 

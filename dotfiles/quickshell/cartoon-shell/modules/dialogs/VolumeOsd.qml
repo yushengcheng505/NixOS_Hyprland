@@ -15,7 +15,7 @@ Scope {
   property var lang: LanguageService.translations
   property bool shouldShowOsd: false
   property real currentVolume: Pipewire.defaultAudioSink?.audio.volume ?? 0
-  property bool isMuted: Pipewire.defaultAudioSink?.audio.mute ?? false
+  property bool isMuted: Pipewire.defaultAudioSink?.audio.muted ?? false
 
   PwObjectTracker {
     objects: [Pipewire.defaultAudioSink]

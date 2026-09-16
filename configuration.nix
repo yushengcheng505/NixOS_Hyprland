@@ -17,6 +17,17 @@ let
     (cd root && find kernel -print | cpio -o -H newc --reproducible) > "$out"
   '';
 
+  bluetoothConnectable = pkgs.writeShellScript "bluetooth-connectable" ''
+    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      if ${pkgs.systemd}/bin/busctl set-property \
+        org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable b true; then
+        exit 0
+      fi
+      ${pkgs.coreutils}/bin/sleep 0.25
+    done
+    exit 1
+  '';
+
   # Run Spotify as a native Wayland client.  This avoids blurry XWayland
   # scaling on the laptop's fractional-scale display.
   spotifyWayland = pkgs.symlinkJoin {
@@ -339,7 +350,21 @@ in
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
+    settings = {
+      General = {
+        # Quickshell does not provide a BlueZ agent of its own. Allow
+        # headless/Just Works pairing requests instead of rejecting them.
+        AlwaysPairable = true;
+        JustWorksRepairing = "always";
+      };
+    };
   };
+
+  # BlueZ 5.87 leaves this adapter non-connectable on power-up even though it
+  # is powered and pairable. Set the Adapter1 property through D-Bus after the
+  # daemon has registered its controller.
+  systemd.services.bluetooth.serviceConfig.ExecStartPost =
+    bluetoothConnectable;
 
   networking.firewall.allowedTCPPorts = [ 22 ];
 

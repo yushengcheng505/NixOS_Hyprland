@@ -58,8 +58,8 @@ PanelWindow {
     property var adapter: Bluetooth.defaultAdapter
     property int connectedCount: {
         let count = 0;
-        for (let i = 0; i < Bluetooth.devices.length; i++) {
-            if (Bluetooth.devices[i].connected)
+        for (let i = 0; i < Bluetooth.devices.values.length; i++) {
+            if (Bluetooth.devices.values[i].connected)
                 count++;
         }
         return count;
@@ -68,13 +68,15 @@ PanelWindow {
     property bool isDiscoverable: adapter ? adapter.discoverable : false
     property bool isPairable: adapter ? adapter.pairable : true
 
-    // Timer to automatically stop scanning after 30 seconds
+    // Keep discovery alive while the panel is in use. BlueZ removes temporary
+    // devices shortly after discovery stops, which made the list look empty.
     Timer {
         id: scanTimer
-        interval: 30000
+        interval: 10000
+        repeat: true
         onTriggered: {
-            if (adapter && adapter.discovering) {
-                adapter.discovering = false;
+            if (adapter?.enabled && !adapter.discovering) {
+                adapter.discovering = true;
             }
         }
     }
@@ -241,9 +243,8 @@ PanelWindow {
         enabled: !!adapter
         function onEnabledChanged() {
             if (adapter?.enabled) {
-                // When enabling adapter, set default modes
+                // Keep the adapter ready for discovery and incoming pairing.
                 adapter.pairable = true;
-                adapter.discoverable = false; // Default not discoverable
                 adapter.discovering = true;
                 scanTimer.restart();
             }
