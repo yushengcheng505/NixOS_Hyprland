@@ -88,31 +88,31 @@ Singleton {
         property string username: "klenko"
         property var appGrid: [
             {
-                "name": "firefox"
+                "name": "google-chrome"
             },
             {
-                "name": "firefox"
+                "name": "Throne"
             },
             {
-                "name": "firefox"
+                "name": "btop"
             },
             {
-                "name": "firefox"
+                "name": "org.telegram.desktop"
             },
             {
-                "name": "firefox"
+                "name": "spotify-client"
             },
             {
-                "name": "firefox"
+                "name": "discord"
             },
             {
-                "name": "firefox"
+                "name": "chatgpt"
             },
             {
-                "name": "firefox"
+                "name": "zed"
             },
             {
-                "name": "firefox"
+                "name": "hermes"
             }
         ]
     }

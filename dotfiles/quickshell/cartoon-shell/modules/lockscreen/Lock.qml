@@ -37,7 +37,11 @@ Scope {
 
   IpcHandler {
     function lock(): void {
-      root.showLockscreen = true;
+      // Keep the existing IPC name for the shell button and keybind, but use
+      // Hyprland DPMS so this action powers off displays without locking the
+      // Wayland session or starting PAM authentication.
+      root.showLockscreen = false;
+      Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.dpms(\"off\")"]);
     }
     function unlock(): void {
       root.showLockscreen = false;

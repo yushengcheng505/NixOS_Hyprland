@@ -109,6 +109,9 @@ in
     sysstat
     networkmanagerapplet
     pavucontrol
+    pwvucontrol
+    qpwgraph
+    helvum
     matugen
     fish
     starship

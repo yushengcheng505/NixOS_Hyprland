@@ -153,26 +153,26 @@ PanelWindow {
                                 animationProgress: root.animationProgress
                             }
                             Com.SocialIcon {
-                                image: "lockscreen/appicons/reddit.png"
-                                bgColor: root.animationProgress > 0.6 ? "#fe640b" : theme.primary.background
+                                textLogo: "X"
+                                bgColor: root.animationProgress > 0.6 ? "#000000" : theme.primary.background
                                 revealThreshold: 0.65
-                                linkSocial: "https://www.reddit.com/"
+                                linkSocial: "https://x.com/"
                                 opacity: root.animationProgress > 0.45 ? 1 : 0
                                 animationProgress: root.animationProgress
                             }
                             Com.SocialIcon {
-                                image: "lockscreen/appicons/facebook.png"
-                                bgColor: root.animationProgress > 0.65 ? "#04a5e5" : theme.primary.background
+                                textLogo: "P"
+                                bgColor: root.animationProgress > 0.65 ? "#e60023" : theme.primary.background
                                 revealThreshold: 0.7
-                                linkSocial: "https://www.facebook.com/"
+                                linkSocial: "https://www.pinterest.com/"
                                 opacity: root.animationProgress > 0.5 ? 1 : 0
                                 animationProgress: root.animationProgress
                             }
                             Com.SocialIcon {
-                                image: "lockscreen/appicons/tiktok.png"
-                                bgColor: root.animationProgress > 0.65 ? "#eff1f5" : theme.primary.background
+                                textLogo: "VK"
+                                bgColor: root.animationProgress > 0.65 ? "#0077ff" : theme.primary.background
                                 revealThreshold: 0.75
-                                linkSocial: "https://www.tiktok.com/"
+                                linkSocial: "https://vk.com/"
                                 opacity: root.animationProgress > 0.55 ? 1 : 0
                                 animationProgress: root.animationProgress
                             }

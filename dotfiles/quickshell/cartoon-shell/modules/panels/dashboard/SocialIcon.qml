@@ -12,6 +12,7 @@ Item {
   property string image: ""
   property string linkSocial: ""
   property color bgColor: "white"
+  property string textLogo: ""
   property real hoverScale: 1.2 // Tỷ lệ phóng to khi hover
   property real revealThreshold: 0
   property real animationProgress: 0
@@ -48,6 +49,18 @@ Item {
       path: image
       anchors.centerIn: parent
       size: "xl"
+      visible: root.image !== ""
+      opacity: root.animationProgress > root.revealThreshold ? 1 : 0
+    }
+
+    Text {
+      anchors.centerIn: parent
+      text: root.textLogo
+      visible: root.textLogo !== ""
+      color: theme.primary.foreground
+      font.family: "ComicShannsMono Nerd Font"
+      font.bold: true
+      font.pixelSize: ScalerService.s(28)
       opacity: root.animationProgress > root.revealThreshold ? 1 : 0
     }
 

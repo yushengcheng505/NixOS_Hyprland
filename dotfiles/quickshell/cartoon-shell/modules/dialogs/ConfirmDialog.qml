@@ -61,11 +61,7 @@ PanelWindow {
   function executeAction() {
     switch (pendingAction) {
       case "sleep":
-      sleepProcess.command = [
-      "sh",
-      "-c",
-      "systemctl suspend && qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock"
-      ];
+      sleepProcess.command = ["systemctl", "suspend"];
       sleepProcess.startDetached();
       break;
       case "lock":

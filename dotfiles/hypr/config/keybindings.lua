@@ -134,12 +134,18 @@ hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true 
 hl.bind(
 	"PRINT",
 	hl.dsp.exec_cmd(
-		'FILE=~/Pictures/screenshot_$(date +\'%Y-%m-%d_%H-%M-%S\').png && grim "$FILE" && wl-copy --type image/png < "$FILE" && notify-send "📸 Screenshot" "Đã chụp toàn màn hình\\nẢnh đã lưu & copy"'
+		'FILE=~/Pictures/screenshot_$(date +\'%Y-%m-%d_%H-%M-%S\').png && grim "$FILE" && wl-copy --type image/png < "$FILE" && LANG_CODE=$(jq -r \'.general.lang // "en"\' "$HOME/.config/cartoon-shell/settings.json" 2>/dev/null || printf en) && case "$LANG_CODE" in ru) TITLE="Скриншот"; BODY="Скриншот сохранён и скопирован";; ja) TITLE="スクリーンショット"; BODY="スクリーンショットを保存してコピーしました";; es) TITLE="Captura de pantalla"; BODY="Captura guardada y copiada";; *) TITLE="Screenshot"; BODY="Screenshot saved and copied";; esac && notify-send "📸 $TITLE" "$BODY"'
 	)
 )
 hl.bind(
 	mainMod .. " + PRINT",
 	hl.dsp.exec_cmd(
-		'FILE=~/Pictures/screenshot_$(date +\'%Y-%m-%d_%H-%M-%S\').png && grim -g "$(slurp)" "$FILE" && wl-copy < "$FILE" && notify-send "📸 Screenshot" "Đã chụp vùng chọn\\nẢnh đã lưu & copy"'
+		'FILE=~/Pictures/screenshot_$(date +\'%Y-%m-%d_%H-%M-%S\').png && grim -g "$(slurp)" "$FILE" && wl-copy < "$FILE" && LANG_CODE=$(jq -r \'.general.lang // "en"\' "$HOME/.config/cartoon-shell/settings.json" 2>/dev/null || printf en) && case "$LANG_CODE" in ru) TITLE="Скриншот"; BODY="Область сохранена и скопирована";; ja) TITLE="スクリーンショット"; BODY="選択範囲を保存してコピーしました";; es) TITLE="Captura de pantalla"; BODY="Área guardada y copiada";; *) TITLE="Screenshot"; BODY="Selected area saved and copied";; esac && notify-send "📸 $TITLE" "$BODY"'
+	)
+)
+hl.bind(
+	mainMod .. " + F12",
+	hl.dsp.exec_cmd(
+		'FILE=~/Pictures/screenshot_$(date +\'%Y-%m-%d_%H-%M-%S\').png && grim -g "$(slurp)" "$FILE" && wl-copy < "$FILE" && LANG_CODE=$(jq -r \'.general.lang // "en"\' "$HOME/.config/cartoon-shell/settings.json" 2>/dev/null || printf en) && case "$LANG_CODE" in ru) TITLE="Скриншот"; BODY="Область сохранена и скопирована";; ja) TITLE="スクリーンショット"; BODY="選択範囲を保存してコピーしました";; es) TITLE="Captura de pantalla"; BODY="Área guardada y copiada";; *) TITLE="Screenshot"; BODY="Selected area saved and copied";; esac && notify-send "📸 $TITLE" "$BODY"'
 	)
 )

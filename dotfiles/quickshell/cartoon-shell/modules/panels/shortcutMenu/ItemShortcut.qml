@@ -11,6 +11,7 @@ CustomRectangle {
     Layout.preferredHeight: ScalerService.s(32)
     property string icon: ""
     property string name: ""
+    signal clicked
     color: mouseArea.containsMouse ? Qt.alpha(theme.button.background_select, 0.6) : "transparent"
     radius: ScalerService.s(Settings.appearance.radius3)
     RowLayout {
@@ -52,6 +53,7 @@ CustomRectangle {
         cursorShape: Qt.PointingHandCursor
         onClicked: {
             SoundService.playSound("pick");
+            root.clicked();
         }
         onEntered: {
             SoundService.playSound("hover");
