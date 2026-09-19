@@ -77,6 +77,7 @@
     "title": "Mezclador de audio",
     "subtitle": "Administrar flujos de audio y volumen",
     "output_device": "Dispositivo de salida",
+    "input_device": "Dispositivo de entrada",
     "application_streams": "Flujos de audio de aplicaciones",
     "no_streams": "Sin flujos de audio activos",
     "active_streams": "Flujos activos: %{count}"

@@ -71,6 +71,7 @@
     "title": "Audio Mixer",
     "subtitle": "Manage audio streams and volume",
     "output_device": "Output Device",
+    "input_device": "Input Device",
     "application_streams": "Application Audio Streams",
     "no_streams": "No active audio streams",
     "active_streams": "Active Streams: %{count}"

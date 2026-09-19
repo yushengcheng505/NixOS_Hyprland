@@ -71,6 +71,7 @@
     "title": "オーディオミキサー",
     "subtitle": "オーディオストリームと音量を管理",
     "output_device": "出力デバイス",
+    "input_device": "入力デバイス",
     "application_streams": "アプリケーションオーディオストリーム",
     "no_streams": "アクティブなオーディオストリームがありません",
     "active_streams": "アクティブなストリーム: %{count}"

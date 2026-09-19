@@ -108,7 +108,6 @@ in
     ffmpeg
     sysstat
     networkmanagerapplet
-    pavucontrol
     pwvucontrol
     qpwgraph
     helvum
