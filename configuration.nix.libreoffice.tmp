@@ -17,17 +17,6 @@ let
     (cd root && find kernel -print | cpio -o -H newc --reproducible) > "$out"
   '';
 
-  bluetoothConnectable = pkgs.writeShellScript "bluetooth-connectable" ''
-    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
-      if ${pkgs.systemd}/bin/busctl set-property \
-        org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable b true; then
-        exit 0
-      fi
-      ${pkgs.coreutils}/bin/sleep 0.25
-    done
-    exit 1
-  '';
-
   # Run Spotify as a native Wayland client.  This avoids blurry XWayland
   # scaling on the laptop's fractional-scale display.
   spotifyWayland = pkgs.symlinkJoin {
@@ -288,35 +277,6 @@ let
     icon = "google-chrome";
     categories = [ "Network" "WebBrowser" ];
   };
-
-  orcaIde = pkgs.appimageTools.wrapType2 rec {
-    pname = "orca-ide";
-    version = "1.4.200";
-
-    src = pkgs.fetchurl {
-      url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-linux.AppImage";
-      hash = "sha256-yC2d31MkMeDaUexdGJmg4xWqu453/ORezOf61HM/yWo=";
-    };
-
-    appimageContents = pkgs.appimageTools.extract { inherit pname version src; };
-
-    extraInstallCommands = ''
-      install -Dm444 ${appimageContents}/orca-ide.desktop -t $out/share/applications/
-      install -Dm444 ${appimageContents}/orca-ide.png \
-        -t $out/share/icons/hicolor/512x512/apps/
-      substituteInPlace $out/share/applications/orca-ide.desktop \
-        --replace-fail 'Exec=AppRun' "Exec=$out/bin/orca-ide"
-    '';
-
-    meta = {
-      description = "Agent development environment for parallel coding workflows";
-      homepage = "https://www.onorca.dev/";
-      license = pkgs.lib.licenses.mit;
-      mainProgram = "orca-ide";
-      platforms = [ "x86_64-linux" ];
-      sourceProvenance = [ pkgs.lib.sourceTypes.binaryNativeCode ];
-    };
-  };
 in
 {
   # Keep the user's Hyprland configuration linked to the tracked dotfiles.
@@ -341,29 +301,6 @@ in
     '';
   };
 
-  # Keep the user's Quickshell configuration linked to the tracked dotfiles.
-  system.activationScripts.quickshellConfigLink = {
-    deps = [ "users" ];
-    text = ''
-      quickshellSource="/etc/nixos/dotfiles/quickshell/cartoon-shell"
-      quickshellTarget="/home/klenko/.config/quickshell/cartoon-shell"
-
-      if [ -L "$quickshellTarget" ]; then
-        target=$(readlink "$quickshellTarget")
-        if [ "$target" != "$quickshellSource" ]; then
-          echo "Refusing to replace $quickshellTarget: unexpected symlink target $target" >&2
-          exit 1
-        fi
-      elif [ -e "$quickshellTarget" ]; then
-        echo "Refusing to replace existing $quickshellTarget; move it aside before switching." >&2
-        exit 1
-      else
-        mkdir -p "$(dirname "$quickshellTarget")"
-        ln -s "$quickshellSource" "$quickshellTarget"
-      fi
-    '';
-  };
-
   imports =
     [       ./hyprland-honor-fmbp/module.nix
 # Include the results of the hardware scan.
@@ -371,29 +308,6 @@ in
     ];
 
   services.openssh.enable = true;
-
-  # Enable the modern Nix CLI and flake support system-wide.
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-  # Provide the BlueZ D-Bus service used by Quickshell's Bluetooth module.
-  hardware.bluetooth = {
-    enable = true;
-    powerOnBoot = true;
-    settings = {
-      General = {
-        # Quickshell does not provide a BlueZ agent of its own. Allow
-        # headless/Just Works pairing requests instead of rejecting them.
-        AlwaysPairable = true;
-        JustWorksRepairing = "always";
-      };
-    };
-  };
-
-  # BlueZ 5.87 leaves this adapter non-connectable on power-up even though it
-  # is powered and pairable. Set the Adapter1 property through D-Bus after the
-  # daemon has registered its controller.
-  systemd.services.bluetooth.serviceConfig.ExecStartPost =
-    bluetoothConnectable;
 
   networking.firewall.allowedTCPPorts = [ 22 ];
 
@@ -555,8 +469,6 @@ in
     pkgs.gh
     pkgs.btop
     pkgs.libreoffice-qt-stable
-    pkgs.bluez
-    orcaIde
   ];
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
