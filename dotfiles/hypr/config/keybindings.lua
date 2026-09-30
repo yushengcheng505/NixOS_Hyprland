@@ -28,6 +28,14 @@ hl.bind(
 -- Lock
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock"))
 
+-- Lock + power off OLED panel (wakes on any input)
+hl.bind(
+	mainMod .. " + SHIFT + L",
+	hl.dsp.exec_cmd(
+		"qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock & sleep 1 && hyprctl dispatch 'hl.dsp.dpms(\"eDP-1\", false)'"
+	)
+)
+
 -- Panels
 hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("qs ipc --path ~/.config/quickshell/cartoon-shell/ call calendar getToggle"))
 

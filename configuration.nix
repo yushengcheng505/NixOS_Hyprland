@@ -134,6 +134,9 @@ let
       export ALL_PROXY="http://127.0.0.1:2080"
       export NO_PROXY="127.0.0.1,localhost,::1"
       exec ${chatgptUnwrapped}/usr/lib/chatgpt/ChatGPT \
+        --ozone-platform=wayland \
+        --enable-features=UseOzonePlatform,WaylandFractionalScalingV1 \
+        --force-device-scale-factor=1 \
         --proxy-server=http://127.0.0.1:2080 "$@"
     '';
     extraInstallCommands = ''
@@ -317,6 +320,8 @@ let
       sourceProvenance = [ pkgs.lib.sourceTypes.binaryNativeCode ];
     };
   };
+
+  easycliproxyapi = pkgs.callPackage ./pkgs/easycliproxyapi.nix { };
 in
 {
   # Keep the user's Hyprland configuration linked to the tracked dotfiles.
@@ -535,6 +540,25 @@ in
     wantedBy = [ "default.target" ];
   };
 
+  # WebKitGTK under native Wayland renders the webview shrunk on this
+  # fractional-scale output, so the wrapper pins GDK_BACKEND=x11 (XWayland)
+  # for a correctly sized UI. The unit stays on default.target because this
+  # session does not activate graphical-session.target.
+  systemd.user.services.easycliproxyapi = {
+    unitConfig = {
+      Description = "EasyCLIProxyAPI desktop console";
+      After = [ "default.target" ];
+      PartOf = [ "default.target" ];
+    };
+    serviceConfig = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+      ExecStart = "${easycliproxyapi}/bin/easycliproxyapi";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    wantedBy = [ "default.target" ];
+  };
+
 
   environment.systemPackages = [
     discord
@@ -557,6 +581,7 @@ in
     pkgs.libreoffice-qt-stable
     pkgs.bluez
     orcaIde
+    easycliproxyapi
   ];
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
