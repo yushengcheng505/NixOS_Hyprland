@@ -4,10 +4,6 @@
   autoPatchelfHook,
   coreutils,
   fetchurl,
-  glibc,
-  gnugrep,
-  gnutar,
-  patchelf,
   alsa-lib,
   at-spi2-atk,
   at-spi2-core,
@@ -18,6 +14,7 @@
   gdk-pixbuf,
   glib,
   gtk3,
+  libappindicator-gtk3,
   libX11,
   libXcomposite,
   libXcursor,
@@ -34,7 +31,6 @@
   pango,
   webkitgtk_4_1,
   wayland,
-  hyprland,
   gst_all_1,
 }:
 
@@ -44,17 +40,15 @@ in
 
 stdenv.mkDerivation rec {
   pname = "easycliproxyapi";
-  version = "0.2.96";
+  version = "0.3.0";
 
   src = fetchurl {
     url = "https://github.com/router-for-me/EasyCLIProxyAPI/releases/download/v${version}/EasyCLIProxyAPI-v${version}-Linux-amd64.tar.gz";
-    hash = "sha256-u0Oi4WEEW/YhHJfhBKsG2qkBB3DcEtS+Q3xRJ49rbfY=";
+    hash = "sha256-xlEhYYLmNlIyWGTyNaDX6NJzCq2S+gqhNCQOVY3kcBI=";
   };
 
   nativeBuildInputs = [
     autoPatchelfHook
-    gnutar
-    patchelf
   ];
 
   buildInputs = [
@@ -68,6 +62,7 @@ stdenv.mkDerivation rec {
     gdk-pixbuf
     glib
     gtk3
+    libappindicator-gtk3
     libX11
     libXcomposite
     libXcursor
@@ -99,15 +94,6 @@ stdenv.mkDerivation rec {
     install -Dm644 core-version.txt $out/lib/easycliproxyapi/core-version.txt
     install -Dm644 portable-app.json $out/lib/easycliproxyapi/portable-app.json
     mkdir -p $out/lib/easycliproxyapi/cpa-core
-    mkdir -p cpa-core/patched
-    ${gnutar}/bin/tar -xzf cpa-core/CLIProxyAPI_7.3.3_linux_amd64.tar.gz -C cpa-core/patched
-    ${patchelf}/bin/patchelf \
-      --set-interpreter ${glibc}/lib/ld-linux-x86-64.so.2 \
-      --set-rpath ${glibc}/lib \
-      cpa-core/patched/cli-proxy-api
-    ${gnutar}/bin/tar -czf cpa-core/CLIProxyAPI_7.3.3_linux_amd64.tar.gz \
-      -C cpa-core/patched cli-proxy-api LICENSE README.md README_CN.md config.example.yaml
-    rm -rf cpa-core/patched
     cp -a cpa-core/. $out/lib/easycliproxyapi/cpa-core/
 
     install -Dm755 /dev/stdin $out/bin/easycliproxyapi <<'EOF'
@@ -117,27 +103,37 @@ stdenv.mkDerivation rec {
     data_dir="''${XDG_DATA_HOME:-''${HOME}/.local/share}/easycliproxyapi"
     payload_dir="''${data_dir}/payload"
 
+    app_libs="${lib.makeLibraryPath (buildInputs ++ [ stdenv.cc.cc.lib ])}"
+    export LD_LIBRARY_PATH="''${app_libs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
     if [ ! -x "''${payload_dir}/EasyCLIProxyAPI" ]; then
       ${coreutils}/bin/rm -rf "''${payload_dir}.new"
       ${coreutils}/bin/mkdir -p "''${payload_dir}.new/cpa-core"
-      ${coreutils}/bin/cp "${placeholder "out"}/lib/easycliproxyapi/EasyCLIProxyAPI" "''${payload_dir}.new/EasyCLIProxyAPI"
+      if [ -d "''${payload_dir}" ]; then
+        ${coreutils}/bin/cp -a "''${payload_dir}/." "''${payload_dir}.new/"
+      elif [ -d "''${payload_dir}.old" ]; then
+        ${coreutils}/bin/cp -a "''${payload_dir}.old/." "''${payload_dir}.new/"
+      fi
+      ${coreutils}/bin/install -m755 "${placeholder "out"}/lib/easycliproxyapi/EasyCLIProxyAPI" "''${payload_dir}.new/EasyCLIProxyAPI"
       ${coreutils}/bin/cp "${placeholder "out"}/lib/easycliproxyapi/core-version.txt" "''${payload_dir}.new/core-version.txt"
       ${coreutils}/bin/cp "${placeholder "out"}/lib/easycliproxyapi/portable-app.json" "''${payload_dir}.new/portable-app.json"
       ${coreutils}/bin/cp -a "${placeholder "out"}/lib/easycliproxyapi/cpa-core/." "''${payload_dir}.new/cpa-core/"
       ${coreutils}/bin/chmod -R u+rwX "''${payload_dir}.new"
       ${coreutils}/bin/mkdir -p "''${data_dir}"
-      ${coreutils}/bin/rm -rf "''${payload_dir}"
+      if [ -d "''${payload_dir}" ]; then
+        ${coreutils}/bin/rm -rf "''${payload_dir}.old"
+        ${coreutils}/bin/mv "''${payload_dir}" "''${payload_dir}.old"
+      fi
       ${coreutils}/bin/mv "''${payload_dir}.new" "''${payload_dir}"
+      ${coreutils}/bin/rm -rf "''${payload_dir}.old"
     fi
 
-    # WebKitGTK 4.1 under native Wayland on a fractional-scale (1.733) Hyprland
-    # output miscomputes the webview size: the page renders shrunk into the
-    # top-left corner on a black window. GDK_BACKEND=x11 (XWayland) lays the
-    # UI out correctly; with xwayland.force_zero_scaling the buffer is sharp,
-    # and GDK_DPI_SCALE=1.5 enlarges the webview text/layout to a readable size.
+    # WebKitGTK 4.1 renders shrunk under native Wayland on this fractional
+    # scale output; XWayland is the default, overridable for experiments.
+    : "''${GDK_BACKEND:=x11}"
+    : "''${GDK_DPI_SCALE:=1.5}"
+    export GDK_BACKEND GDK_DPI_SCALE
     export GTK_CSD=0
-    export GDK_BACKEND=x11
-    export GDK_DPI_SCALE=1.5
     export GST_PLUGIN_SYSTEM_PATH_1_0="${gstreamer}/lib/gstreamer-1.0:${gst-plugins-base}/lib/gstreamer-1.0"
     exec "''${payload_dir}/EasyCLIProxyAPI" "''$@"
     EOF

@@ -377,6 +377,8 @@ in
 
   services.openssh.enable = true;
 
+  services.tailscale.enable = true;
+
   # Enable the modern Nix CLI and flake support system-wide.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
@@ -542,22 +544,42 @@ in
 
   # WebKitGTK under native Wayland renders the webview shrunk on this
   # fractional-scale output, so the wrapper pins GDK_BACKEND=x11 (XWayland)
-  # for a correctly sized UI. The unit stays on default.target because this
-  # session does not activate graphical-session.target.
+  # for a correctly sized UI. The direct session does not activate
+  # graphical-session.target, so hyprland.start imports the Wayland
+  # environment and then starts this private target; GUI units hang off it
+  # instead of default.target, which is reached before Hyprland exists.
+  systemd.user.targets.hyprland-session = {
+    unitConfig = {
+      Description = "Hyprland direct session (Wayland environment imported)";
+      After = [ "default.target" ];
+    };
+  };
+
+  # The self-update helper is a plain child in the service cgroup; with the
+  # default ExitType=main the unit deactivates as soon as the GUI exits 0 and
+  # the helper is killed before it finishes.
   systemd.user.services.easycliproxyapi = {
     unitConfig = {
       Description = "EasyCLIProxyAPI desktop console";
-      After = [ "default.target" ];
-      PartOf = [ "default.target" ];
+      After = [ "hyprland-session.target" ];
+      PartOf = [ "hyprland-session.target" ];
     };
     serviceConfig = {
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+      Environment = [
+        "GSETTINGS_SCHEMA_DIR=${pkgs.glib.getSchemaPath pkgs.gsettings-desktop-schemas}"
+      ];
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 2";
       ExecStart = "${easycliproxyapi}/bin/easycliproxyapi";
+      ExitType = "cgroup";
       Restart = "on-failure";
       RestartSec = 3;
     };
-    wantedBy = [ "default.target" ];
+    wantedBy = [ "hyprland-session.target" ];
   };
+
+  # Upstream self-updates replace the embedded core with an unpatched
+  # dynamically linked binary that needs /lib64/ld-linux-x86-64.so.2.
+  programs.nix-ld.enable = true;
 
 
   environment.systemPackages = [
@@ -568,6 +590,9 @@ in
     pkgs.zed-editor
     spotifyWayland
     pkgs.nodejs
+    (pkgs.writeShellScriptBin "kimi" ''
+      exec ${pkgs.nodejs}/bin/npx --yes @moonshot-ai/kimi-code@latest "$@"
+    '')
     pkgs.google-chrome
     chromeAuto
     chromeProxy
