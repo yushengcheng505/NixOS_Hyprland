@@ -5,6 +5,44 @@
 { config, pkgs, ... }:
 
 let
+  desktopConfigLink = relativePath: entrypoint: {
+    deps = [ "users" ];
+    text = ''
+      (
+        set -eu
+        source="/home/klenko/nixos/dotfiles/${relativePath}"
+        legacySource="/etc/nixos/dotfiles/${relativePath}"
+        target="${config.users.users.klenko.home}/.config/${relativePath}"
+
+        if [ ! -f "$source/${entrypoint}" ]; then
+          echo "Missing desktop configuration: $source/${entrypoint}" >&2
+          exit 1
+        fi
+
+        if [ -L "$target" ]; then
+          current=$(readlink "$target")
+          if [ "$current" = "$source" ]; then
+            exit 0
+          elif [ "$current" != "$legacySource" ]; then
+            echo "Refusing to replace $target: unexpected symlink target $current" >&2
+            exit 1
+          fi
+        elif [ -e "$target" ]; then
+          echo "Refusing to replace existing $target; move it aside before switching." >&2
+          exit 1
+        fi
+
+        for directory in "${config.users.users.klenko.home}/.config" "$(dirname "$target")"; do
+          if [ ! -d "$directory" ]; then
+            install -d -m 0700 -o klenko -g ${config.users.users.klenko.group} "$directory"
+          fi
+        done
+        ln -sfnT "$source" "$target"
+        chown -h klenko:${config.users.users.klenko.group} "$target"
+      )
+    '';
+  };
+
   # Corrected DSDT for HONOR FMB-P BIOS 1.13; kept beside this file so builds
   # do not depend on network access to fetch the ACPI table.
   honorDsdt = ./dsdt.global.aml;
@@ -125,7 +163,7 @@ let
       libxcomposite libxdamage libxext libxfixes libxkbcommon libxrandr
       nspr nss pango pipewire pulseaudio wayland xdg-utils xz
       systemdLibs
-      mesa mesa.drivers
+      mesa
       stdenv.cc.cc
     ];
     runScript = pkgs.writeShellScript "chatgpt-run" ''
@@ -147,77 +185,6 @@ let
       ln -s ${chatgptDesktopItem}/share/applications $out/share/applications
       ln -s $out/bin/ChatGPT $out/bin/chatgpt
     '';
-  };
-
-  throne = pkgs.stdenvNoCC.mkDerivation {
-    pname = "throne";
-    version = "1.2.4";
-    src = pkgs.fetchzip {
-      url = "https://github.com/throneproj/Throne/releases/download/1.2.4/Throne-1.2.4-linux-amd64.zip";
-      sha256 = "b5ff75aed3633d6f146921ebb75f232e0f0b5a2eca878a701e73bd232f1dd838";
-    };
-    nativeBuildInputs = [ pkgs.makeWrapper pkgs.autoPatchelfHook ];
-    buildInputs = with pkgs; [
-      stdenv.cc.cc
-      zstd
-      dbus
-      glib
-      krb5
-      openssl
-      gtk3
-      pango
-      cairo
-      atk
-      gdk-pixbuf
-      harfbuzz
-      fontconfig
-      freetype
-      libGL
-      libxkbcommon
-      wayland
-      xorg.libX11
-      xorg.libXcursor
-      xorg.libXext
-      xorg.libXfixes
-      xorg.libXi
-      xorg.libXrandr
-      xorg.libXrender
-      xorg.libxcb
-      xorg.xcbutilcursor
-      xorg.xcbutilimage
-      xorg.xcbutilkeysyms
-      xorg.xcbutilrenderutil
-    ];
-    autoPatchelfIgnoreMissingDeps = true;
-    dontConfigure = true;
-    dontBuild = true;
-    installPhase = ''
-      mkdir -p $out/opt/Throne $out/share/icons/hicolor/512x512/apps $out/share/applications
-      cp -r . $out/opt/Throne/
-      chmod +x $out/opt/Throne/Throne $out/opt/Throne/ThroneCore
-      cp $out/opt/Throne/Throne.png $out/share/icons/hicolor/512x512/apps/throne.png
-      cp ${throneDesktopItem}/share/applications/throne.desktop $out/share/applications/
-      makeWrapper $out/opt/Throne/Throne $out/bin/throne \
-        --chdir $out/opt/Throne \
-        --prefix PATH : $out/opt/Throne \
-        --set QT_PLUGIN_PATH $out/opt/Throne/usr/plugins \
-        --set LD_LIBRARY_PATH "$out/opt/Throne/usr/lib:${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.zstd pkgs.dbus pkgs.glib pkgs.krb5 pkgs.openssl pkgs.gtk3 pkgs.pango pkgs.cairo pkgs.atk pkgs.gdk-pixbuf pkgs.harfbuzz pkgs.fontconfig pkgs.freetype pkgs.libGL pkgs.libxkbcommon pkgs.wayland pkgs.xorg.libX11 pkgs.xorg.libXcursor pkgs.xorg.libXext pkgs.xorg.libXfixes pkgs.xorg.libXi pkgs.xorg.libXrandr pkgs.xorg.libXrender pkgs.xorg.libxcb pkgs.xorg.xcbutilcursor pkgs.xorg.xcbutilimage pkgs.xorg.xcbutilkeysyms pkgs.xorg.xcbutilrenderutil ]}"
-    '';
-    meta = {
-      description = "Cross-platform GUI proxy utility powered by sing-box";
-      homepage = "https://github.com/throneproj/Throne";
-      license = pkgs.lib.licenses.gpl2Only;
-      platforms = [ "x86_64-linux" ];
-      mainProgram = "throne";
-    };
-  };
-
-  throneDesktopItem = pkgs.makeDesktopItem {
-    name = "throne";
-    desktopName = "Throne";
-    exec = "throne -appdata";
-    icon = "throne";
-    categories = [ "Network" ];
   };
 
   thronePac = pkgs.writeText "throne.pac" ''
@@ -324,50 +291,8 @@ let
   easycliproxyapi = pkgs.callPackage ./pkgs/easycliproxyapi.nix { };
 in
 {
-  # Keep the user's Hyprland configuration linked to the tracked dotfiles.
-  system.activationScripts.hyprlandConfigLink = {
-    deps = [ "users" ];
-    text = ''
-      hyprlandSource="/etc/nixos/dotfiles/hypr"
-      hyprlandTarget="/home/klenko/.config/hypr"
-
-      if [ -L "$hyprlandTarget" ]; then
-        target=$(readlink "$hyprlandTarget")
-        if [ "$target" != "$hyprlandSource" ]; then
-          echo "Refusing to replace $hyprlandTarget: unexpected symlink target $target" >&2
-          exit 1
-        fi
-      elif [ -e "$hyprlandTarget" ]; then
-        echo "Refusing to replace existing $hyprlandTarget; move it aside before switching." >&2
-        exit 1
-      else
-        ln -s "$hyprlandSource" "$hyprlandTarget"
-      fi
-    '';
-  };
-
-  # Keep the user's Quickshell configuration linked to the tracked dotfiles.
-  system.activationScripts.quickshellConfigLink = {
-    deps = [ "users" ];
-    text = ''
-      quickshellSource="/etc/nixos/dotfiles/quickshell/cartoon-shell"
-      quickshellTarget="/home/klenko/.config/quickshell/cartoon-shell"
-
-      if [ -L "$quickshellTarget" ]; then
-        target=$(readlink "$quickshellTarget")
-        if [ "$target" != "$quickshellSource" ]; then
-          echo "Refusing to replace $quickshellTarget: unexpected symlink target $target" >&2
-          exit 1
-        fi
-      elif [ -e "$quickshellTarget" ]; then
-        echo "Refusing to replace existing $quickshellTarget; move it aside before switching." >&2
-        exit 1
-      else
-        mkdir -p "$(dirname "$quickshellTarget")"
-        ln -s "$quickshellSource" "$quickshellTarget"
-      fi
-    '';
-  };
+  system.activationScripts.hyprlandConfigLink = desktopConfigLink "hypr" "hyprland.lua";
+  system.activationScripts.quickshellConfigLink = desktopConfigLink "quickshell/cartoon-shell" "shell.qml";
 
   imports =
     [       ./hyprland-honor-fmbp/module.nix
@@ -406,6 +331,7 @@ in
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot.configurationLimit = 10;
   boot.loader.efi.canTouchEfiVariables = true;
 
   # Use latest kernel.

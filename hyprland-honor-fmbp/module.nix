@@ -1,27 +1,4 @@
-{ config, lib, pkgs, ... }:
-
-let
-  # Do not use the UWSM desktop entry on this laptop. The direct session
-  # calls NixOS' capability wrapper explicitly, avoiding start-hyprland's
-  # ambiguous PATH lookup under SDDM.
-  hyprlandDirectSession = pkgs.writeTextFile {
-    name = "hyprland-direct-session";
-    text = ''
-      [Desktop Entry]
-      Name=Hyprland (direct)
-      Comment=An intelligent dynamic tiling Wayland compositor
-      Exec=/run/wrappers/bin/Hyprland
-      TryExec=/run/wrappers/bin/Hyprland
-      DesktopNames=Hyprland
-      Type=Application
-      Keywords=tiling;wayland;compositor;
-    '';
-    destination = "/share/wayland-sessions/hyprland-direct.desktop";
-    derivationArgs = {
-      passthru.providedSessions = [ "hyprland-direct" ];
-    };
-  };
-in
+{ lib, pkgs, ... }:
 
 {
   programs.hyprland = {
@@ -46,10 +23,6 @@ in
     };
   };
 
-  # The direct SDDM Hyprland session does not pull in
-  # graphical-session.target (the UWSM session does).  Start both portal
-  # processes from the user manager so Wayland screen sharing remains
-  # available to Discord even in the direct session.
   systemd.user.services.xdg-desktop-portal-hyprland-direct = {
     unitConfig = {
       Description = "Hyprland desktop portal for direct sessions";
