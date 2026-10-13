@@ -65,7 +65,7 @@
     "logout": "Keluar",
     "shutdown": "Matikan",
     "restart": "Mulai Ulang",
-    "lock": "Kunci Layar"
+    "lock": "Matikan Layar"
   },
   "mixer": {
     "title": "Mixer Audio",
@@ -118,7 +118,7 @@
     "yes": "Ya",
     "no": "Tidak",
     "sleep": "masuk mode tidur",
-    "lock": "kunci layar",
+    "lock": "matikan layar",
     "logout": "keluar",
     "restart": "mulai ulang",
     "shutdown": "matikan"

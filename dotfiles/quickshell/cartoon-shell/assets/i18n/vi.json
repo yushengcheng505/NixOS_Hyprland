@@ -65,7 +65,7 @@
     "logout": "Đăng xuất",
     "shutdown": "Tắt máy",
     "restart": "Khởi động lại",
-    "lock": "Khóa màn hình"
+    "lock": "Tắt màn hình"
   },
   "mixer": {
     "title": "Trình trộn âm thanh",
@@ -118,7 +118,7 @@
     "yes": "Có",
     "no": "Không",
     "sleep": "chuyển sang chế độ ngủ",
-    "lock": "khóa màn hình",
+    "lock": "tắt màn hình",
     "logout": "đăng xuất",
     "restart": "khởi động lại",
     "shutdown": "tắt máy"

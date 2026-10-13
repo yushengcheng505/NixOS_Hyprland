@@ -130,7 +130,11 @@ Item {
         },
         {
           key: "SUPER + L",
-          action: "Lock Screen"
+          action: "Turn Off Screen"
+        },
+        {
+          key: "SUPER + SHIFT + L",
+          action: "Turn Off Screen"
         },
         {
           key: "SUPER + A",

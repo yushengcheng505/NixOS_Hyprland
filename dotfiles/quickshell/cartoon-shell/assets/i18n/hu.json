@@ -65,7 +65,7 @@
     "logout": "Kijelentkezés",
     "shutdown": "Leállítás",
     "restart": "Újraindítás",
-    "lock": "Képernyő zárolása"
+    "lock": "Képernyő kikapcsolása"
   },
   "mixer": {
     "title": "Hangkeverő",
@@ -118,7 +118,7 @@
     "yes": "Igen",
     "no": "Nem",
     "sleep": "alvó módba lépni",
-    "lock": "zárolni a képernyőt",
+    "lock": "kikapcsolni a képernyőt",
     "logout": "kijelentkezni",
     "restart": "újraindítani",
     "shutdown": "leállítani"

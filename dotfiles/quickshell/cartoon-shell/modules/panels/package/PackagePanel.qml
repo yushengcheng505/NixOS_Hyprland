@@ -1,579 +1,377 @@
 import QtQuick
-import qs.components
 import QtQuick.Layouts
+import QtQuick.Controls.Fusion
 import Quickshell
+import qs.commons
+import qs.components
 import qs.services
 
 PanelWindow {
-  id: root
-  implicitWidth: ScalerService.s(1000)
-  implicitHeight: ScalerService.s(750)
-  color: "transparent"
+    id: root
+    implicitWidth: ScalerService.s(1000)
+    implicitHeight: ScalerService.s(750)
+    color: "transparent"
 
-  PackageService{
-    id: packageService
-    simplePackage: false
-  }
+    property string currentView: "groups"
+    property string selectedGroup: ""
+    readonly property bool isDetail: currentView === "info"
+    readonly property var info: packageService.packageInfo
+    readonly property var group: packageService.dataModel.find(function (item) { return item.id === root.selectedGroup; }) || null
+    readonly property var groupPackages: group ? group.packages : []
+    readonly property bool busy: isDetail ? packageService.infoLoading : packageService.loading
+    readonly property bool available: isDetail ? packageService.infoAvailable : packageService.available
+    readonly property string failure: isDetail ? packageService.infoError : packageService.error
+    readonly property bool partial: isDetail ? packageService.infoPartial : packageService.partial
+    readonly property var warnings: isDetail ? packageService.infoWarnings : packageService.warnings
+    readonly property string notice: [partial ? tr("partial") : "", failure,
+        packageService.diagnosticText(warnings)].filter(function (text) { return text.length > 0; }).join("\n")
 
-  property var diskList: null
-  property var infoPackage: null
-  property bool loaded: false
-  property var indexPackages : 7
-  property string currentView: "groups"
-  property bool isGroups: currentView === "groups"
-  property bool isPackages: currentView === "packages"
-  property bool isPackageInfo: currentView === "packageInfo"
-
-  // Proper color list for disks
-  property var listColor: [
-  theme.normal.red,
-  theme.normal.green,
-  theme.normal.blue,
-  theme.normal.yellow,
-  theme.normal.magenta,
-  theme.normal.cyan,
-  ]
-
-  // Function to get color for a specific disk
-  function getDiskColor(index) {
-    return listColor[index % listColor.length]
-  }
-  function onBubbleClicked(index) {
-    root.loaded = false
-    if (isPackages) {
-      packageService.getPackageInfo(
-        root.diskList[index].name,
-
-        function(data) {
-          root.infoPackage = data
-        }
-      )
-      currentView = "packageInfo"
-
-      root.loaded = true
-      return
+    PackageService {
+        id: packageService
+        simplePackage: false
     }
 
-    const data = packageService.dataModel[index]
-
-    if (!data || !data.packages)
-    return
-
-    currentView = "packages"
-
-    root.diskList = data.packages
-
-    Qt.callLater(function() {
-        packCircles()
-    })
-  }
-
-  property var circlePositions: []
-  property real padding: ScalerService.s(6)
-  property real packScale: 1.0
-
-  Connections {
-    target: packageService
-
-    function onDataModelChanged() {
-      if (packageService.dataModel && packageService.dataModel.length > 0) {
-        diskList = [
-        {"name":"Desktop","size":1},
-        {"name":"Dev","size":1},
-        {"name":"Libs","size":1},
-        {"name":"Media","size":1},
-        {"name":"Misc","size":1},
-        {"name":"Network","size":1},
-        {"name":"Misc","size":1},
-        ]
-        packCircles()
-      }
-    }
-  }
-  onWidthChanged: packCircles()
-  onHeightChanged: packCircles()
-
-  function packCircles() {
-    root.loaded = false
-    if (root.diskList === null) {
-      return
-    }
-    const items = []
-
-    for (let i = 0; i < diskList.length; i++) {
-      const d = diskList[i]
-      items.push({
-          index: i,
-          name: d.name,
-          size: d.size,
-          radius: 0,
-          x: 0,
-          y: 0
-      })
+    function tr(key) {
+        return LanguageService.t("packages", key);
     }
 
-    const cx = root.width / 2
-    const cy = root.height / 2
-
-    const boundaryRadius =
-    Math.min(root.width, root.height) / 2 - ScalerService.s(18)
-
-    let totalSize = 0
-    for (const item of items)
-    totalSize += item.size
-
-    // Scale to make total bubble area occupy most of the container
-    const fillRatio = 0.72
-    packScale = Math.sqrt((fillRatio * boundaryRadius * boundaryRadius) / totalSize)
-
-    for (const item of items)
-    item.radius = Math.sqrt(item.size) * packScale
-
-    // Sort large -> small for better packing
-    items.sort((a, b) => b.radius - a.radius)
-
-    // Initial positions: slight spiral to avoid overlap from the start
-    const goldenAngle = 137.507764 * Math.PI / 180
-    for (let i = 0; i < items.length; i++) {
-      const angle = i * goldenAngle
-      const r = Math.sqrt(i + 1) * ScalerService.s(18)
-      items[i].x = cx + Math.cos(angle) * r
-      items[i].y = cy + Math.sin(angle) * r
+    function sourceName(id) {
+        return tr("source_" + id);
     }
 
-    // Multiple relaxation iterations
-    for (let iter = 0; iter < 350; iter++) {
-      // Push apart
-      for (let i = 0; i < items.length; i++) {
-        for (let j = i + 1; j < items.length; j++) {
-          const a = items[i]
-          const b = items[j]
-
-          let dx = b.x - a.x
-          let dy = b.y - a.y
-          let dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 0.001) dist = 0.001
-
-          const minDist = a.radius + b.radius + padding
-          if (dist < minDist) {
-            const overlap = minDist - dist
-            const nx = dx / dist
-            const ny = dy / dist
-
-            a.x -= nx * overlap * 0.5
-            a.y -= ny * overlap * 0.5
-            b.x += nx * overlap * 0.5
-            b.y += ny * overlap * 0.5
-          }
-        }
-      }
-
-      // Pull slightly toward center + keep within circular boundary
-      for (const c of items) {
-        c.x += (cx - c.x) * 0.002
-        c.y += (cy - c.y) * 0.002
-
-        let dx = c.x - cx
-        let dy = c.y - cy
-        let dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 0.001) dist = 0.001
-
-        const maxDist = boundaryRadius - c.radius
-        if (dist > maxDist) {
-          c.x = cx + (dx / dist) * maxDist
-          c.y = cy + (dy / dist) * maxDist
-        }
-      }
+    function versionLabel(record) {
+        return record.version ? record.version + (record.versionInferred ? " " + tr("inferred") : "") : tr("unknown");
     }
 
-    const positions = []
-    for (const c of items) {
-      positions[c.index] = {
-        x: c.x - c.radius,
-        y: c.y - c.radius,
-        size: c.radius * 2
-      }
+    function openPackage(id) {
+        currentView = "info";
+        packageService.getPackageInfo(id);
     }
 
-    circlePositions = positions
-    root.loaded = true
-  }
-
-  Rectangle {
-    anchors.fill: parent
-    radius: ScalerService.s(Settings.appearance.radius1)
-    border.width: Settings.appearance.enableBorder ? ScalerService.s(3) : 0
-    border.color: theme.primary.foreground
-    color: theme.primary.background
-
-    CustomText {
-      anchors.centerIn: parent
-      visible: !loaded
-      name: "LOADING..."
-      size: "2xl"
+    function back() {
+        packageService.cancelPackageInfo();
+        currentView = isDetail ? "packages" : "groups";
     }
-    ColumnLayout {
-      anchors.fill: parent
-      Item {
-        visible: !isGroups
-        Layout.fillWidth: true
-        Layout.preferredHeight: ScalerService.s(50)
-        ButtonText{
-          visible: loaded
-          name: "Back"
-          onClicked: {
-            if (isPackages) {
-              root.diskList = [
-              {"name":"Desktop","size":1},
-              {"name":"Dev","size":1},
-              {"name":"Libs","size":1},
-              {"name":"Media","size":1},
-              {"name":"Misc","size":1},
-              {"name":"Network","size":1},
-              {"name":"Misc","size":1},
-              ]
-              packCircles()
-              root.currentView = "groups"
 
-            } else if (isPackageInfo) {
-              root.currentView = "packages"
+    function refresh() {
+        currentView = "groups";
+        selectedGroup = "";
+        packageService.refresh();
+    }
 
-            }
+    function retry() {
+        if (isDetail)
+            packageService.getPackageInfo(packageService.selectedId);
+        else
+            refresh();
+    }
 
-          }
-        }
+    Rectangle {
+        anchors.fill: parent
+        radius: ScalerService.s(Settings.appearance.radius1)
+        border.width: Settings.appearance.enableBorder ? ScalerService.s(3) : 0
+        border.color: theme.primary.foreground
+        color: theme.primary.background
 
-      }
-      Item {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        visible: loaded && !isPackageInfo
-        Repeater {
-          model: root.diskList
-
-          Rectangle {
-            id: bubble
-
-            property var pos: root.circlePositions[index]
-            property var diskColor:  getDiskColor(index)
-
-            width: pos ? pos.size : ScalerService.s(10)
-            height: pos ? pos.size : ScalerService.s(10)
-            radius: width / 2
-            border.width: ScalerService.s(2)
-            border.color: theme.primary.foreground
-            clip: true
-
-            // Apply the color from listColor
-            color: diskColor
-
-            scale: mouseArea.containsMouse ? 1.1 : 1
-            z: mouseArea.containsMouse ? 999 : index
-
-            Behavior on scale {
-              NumberAnimation {
-                duration: 450
-                easing.type: Easing.OutCubic
-              }
-            }
-
-            visible: !modelData.name.startsWith("zram")
-
-            x: (pos ? pos.x : parent.width / 2 - width / 2)
-            y: (pos ? pos.y : parent.height / 2 - height / 2)
-
-            SequentialAnimation on y {
-              loops: Animation.Infinite
-              running: true
-
-              NumberAnimation {
-                from: (pos ? pos.y : parent.height / 2 - height / 2) - ScalerService.s(8)
-                to: (pos ? pos.y : parent.height / 2 - height / 2) + ScalerService.s(8)
-                duration: 1800 + (index * 250)
-                easing.type: Easing.InOutSine
-              }
-              NumberAnimation {
-                from: (pos ? pos.y : parent.height / 2 - height / 2) + ScalerService.s(8)
-                to: (pos ? pos.y : parent.height / 2 - height / 2) - ScalerService.s(8)
-                duration: 1800 + (index * 250)
-                easing.type: Easing.InOutSine
-              }
-            }
-
-            Behavior on x {
-              NumberAnimation {
-                duration: 350
-                easing.type: Easing.OutCubic
-              }
-            }
-
-            Behavior on y {
-              NumberAnimation {
-                duration: 350
-                easing.type: Easing.OutCubic
-              }
-            }
-
-            ColumnLayout {
-              anchors.centerIn: parent
-              spacing: ScalerService.s(2)
-
-              CustomText {
-                width: pos ? pos.size * 0.8 : ScalerService.s(50)
-
-                name: modelData.name
-                textColor: theme.primary.background
-
-                property var sizeText: Math.max(ScalerService.s(10), bubble.width * 0.1)
-
-                font.pixelSize: mouseArea.containsMouse
-                ? sizeText * 1.1
-                : sizeText
-
-                isBold: mouseArea.containsMouse
-
-                horizontalAlignment: Text.AlignHCenter
-
-                wrapMode: Text.WrapAnywhere
-                maximumLineCount: 2
-              }
-
-              CustomText {
-                visible: root.isPackages
-                width: pos ? pos.size * 0.8 : ScalerService.s(50)
-
-                property var sizeText: Math.max(ScalerService.s(8), bubble.width * 0.1)
-
-                font.pixelSize: mouseArea.containsMouse
-                ? sizeText * 1.1
-                : sizeText
-
-                textColor: theme.primary.background
-                name: modelData.size + " MB"
-
-                horizontalAlignment: Text.AlignHCenter
-
-              }
-            }
-
-            MouseArea {
-              id: mouseArea
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.onBubbleClicked(index)
-            }
-          }
-        }
-
-      }
-
-      Item {
-        visible: isPackageInfo
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-
-        Flickable {
-          anchors.fill: parent
-
-          contentWidth: width
-          contentHeight: infoColumn.implicitHeight + ScalerService.s(40)
-
-          clip: true
-
-          ColumnLayout {
-            id: infoColumn
-
-            width: parent.width - ScalerService.s(40)
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.margins: ScalerService.s(20)
-
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: ScalerService.s(24)
             spacing: ScalerService.s(14)
 
-            // =========================
-            // Header
-            // =========================
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: contentHeader.implicitHeight + ScalerService.s(20)
-
-              radius: ScalerService.s(16)
-
-              color: theme.button.background
-              border.width: ScalerService.s(2)
-              border.color: theme.button.border
-
-              RowLayout {
-                anchors.fill: parent
-                anchors.margins: ScalerService.s(18)
-
-                ColumnLayout {
-                  id: contentHeader
-                  spacing: ScalerService.s(6)
-
-                  CustomText {
-                    name: root.infoPackage["Name"] || "Unknown"
-                    size: "2xl"
-                    isBold: true
-                    textColor: theme.button.text
-                  }
-
-                  CustomText {
-                    name: root.infoPackage["Description"] || ""
-                    size: "normal"
-                    textColor: theme.button.text
-                  }
-                }
-              }
-            }
-
-            // =========================
-            // Info Cards
-            // =========================
-            Repeater {
-              model: [
-              ["Version", root.infoPackage["Version"]],
-              ["Architecture", root.infoPackage["Architecture"]],
-              ["Installed Size", root.infoPackage["Installed Size"]],
-              ["Build Date", root.infoPackage["Build Date"]],
-              ["Install Date", root.infoPackage["Install Date"]],
-              ["Packager", root.infoPackage["Packager"]],
-              ["Install Reason", root.infoPackage["Install Reason"]],
-              ["Validated By", root.infoPackage["Validated By"]],
-              ["Licenses", root.infoPackage["Licenses"]],
-              ["URL", root.infoPackage["URL"]]
-              ]
-
-              delegate: Rectangle {
-
+            RowLayout {
                 Layout.fillWidth: true
+                spacing: ScalerService.s(16)
 
-                implicitHeight: contentColumn.implicitHeight + ScalerService.s(20)
+                ButtonText {
+                    visible: root.currentView !== "groups"
+                    name: root.tr("back")
+                    size: "small"
+                    implicitHeight: ScalerService.s(44)
+                    activeFocusOnTab: true
+                    Keys.onReturnPressed: root.back()
+                    Keys.onSpacePressed: root.back()
+                    onClicked: root.back()
+                }
 
-                radius: ScalerService.s(14)
-
-                color: theme.button.background
-                border.width: ScalerService.s(1)
-                border.color: theme.button.border
-
-                ColumnLayout {
-                  id: contentColumn
-
-                  anchors.fill: parent
-                  anchors.margins: ScalerService.s(14)
-
-                  spacing: ScalerService.s(6)
-
-                  CustomText {
-                    name: modelData[0]
-                    size: "lg"
-                    isBold: true
-                    textColor: theme.button.text
-                  }
-
-                  CustomText {
+                CustomText {
                     Layout.fillWidth: true
-
-                    name: modelData[1] || "None"
-
-                    wrapMode: Text.WrapAnywhere
-
-                    textColor: theme.button.text
-                  }
+                    name: root.currentView === "groups" ? root.tr("title") : root.sourceName(root.selectedGroup)
+                    size: "large"
+                    isBold: true
+                    elide: Text.ElideRight
                 }
-              }
+
+                ButtonText {
+                    name: root.tr("refresh")
+                    size: "small"
+                    implicitHeight: ScalerService.s(44)
+                    enabled: !packageService.loading
+                    opacity: enabled ? 1 : 0.5
+                    activeFocusOnTab: true
+                    Keys.onReturnPressed: root.refresh()
+                    Keys.onSpacePressed: root.refresh()
+                    onClicked: root.refresh()
+                }
             }
 
-            // =========================
-            // Dependencies
-            // =========================
+            CustomText {
+                Layout.fillWidth: true
+                name: root.tr("explanation")
+                size: "small"
+                wrapMode: Text.WordWrap
+                textFormat: Text.PlainText
+            }
+
             Rectangle {
+                visible: root.notice !== ""
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(noticeText.implicitHeight + ScalerService.s(24), ScalerService.s(130))
+                radius: ScalerService.s(12)
+                color: theme.button.background
+                border.color: theme.normal.yellow
+                border.width: ScalerService.s(1)
 
-              Layout.fillWidth: true
-
-              implicitHeight: depColumn.implicitHeight + ScalerService.s(20)
-
-              radius: ScalerService.s(14)
-
-              color: theme.button.background
-
-              border.width: ScalerService.s(1)
-              border.color: theme.button.border
-              ColumnLayout {
-                id: depColumn
-
-                anchors.fill: parent
-                anchors.margins: ScalerService.s(14)
-
-                spacing: ScalerService.s(10)
-
-                CustomText {
-                  name: "Dependencies"
-                  size: "xl"
-                  isBold: true
-                  textColor: theme.button.text
+                Flickable {
+                    anchors.fill: parent
+                    anchors.margins: ScalerService.s(12)
+                    contentWidth: width
+                    contentHeight: noticeText.implicitHeight
+                    clip: true
+                    ScrollBar.vertical: ScrollBar {}
+                    CustomText {
+                        id: noticeText
+                        width: parent.width
+                        name: root.notice
+                        size: "small"
+                        wrapMode: Text.WrapAnywhere
+                        textFormat: Text.PlainText
+                        textColor: theme.button.text
+                    }
                 }
-
-                CustomText {
-                  Layout.fillWidth: true
-
-                  name: root.infoPackage["Depends On"] || "None"
-
-                  wrapMode: Text.WrapAnywhere
-
-                  textColor: theme.button.text
-                }
-              }
             }
 
-            // =========================
-            // Optional Dependencies
-            // =========================
-            Rectangle {
-
-              Layout.fillWidth: true
-
-              implicitHeight: optDepColumn.implicitHeight + ScalerService.s(20)
-
-              radius: ScalerService.s(14)
-
-              color: theme.button.background
-
-              border.width: ScalerService.s(1)
-              border.color: theme.button.border
-
-              ColumnLayout {
-                id: optDepColumn
-
-                anchors.fill: parent
-                anchors.margins: ScalerService.s(14)
-
-                spacing: ScalerService.s(10)
-
-                CustomText {
-                  name: "Optional Dependencies"
-                  size: "xl"
-                  isBold: true
-                  textColor: theme.button.text
-                }
-
-                CustomText {
-                  Layout.fillWidth: true
-
-                  name: root.infoPackage["Optional Deps"] || "None"
-
-                  wrapMode: Text.WrapAnywhere
-
-                  textColor: theme.button.text
-                }
-              }
+            ButtonText {
+                visible: !root.busy && (root.failure !== "" || root.partial)
+                name: root.tr("retry")
+                size: "small"
+                implicitHeight: ScalerService.s(44)
+                activeFocusOnTab: true
+                Keys.onReturnPressed: root.retry()
+                Keys.onSpacePressed: root.retry()
+                onClicked: root.retry()
             }
-          }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                CustomText {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    size: "normal"
+                    visible: root.busy || !root.available || (!root.isDetail && (root.currentView === "groups" ? packageService.totalPackage === 0 : root.groupPackages.length === 0))
+                    name: root.busy ? root.tr(root.isDetail ? "loading_info" : "loading")
+                        : !root.available ? root.tr("unavailable") : root.tr("empty")
+                }
+
+                RowLayout {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    spacing: ScalerService.s(18)
+                    visible: root.currentView === "groups" && !root.busy && root.available && packageService.totalPackage > 0
+
+                    Repeater {
+                        model: packageService.dataModel
+                        delegate: Item {
+                            id: groupItem
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: ScalerService.s(280)
+                            Rectangle {
+                                id: bubble
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width, ScalerService.s(250))
+                                height: width
+                                radius: width / 2
+                                color: [theme.normal.green, theme.normal.blue, theme.normal.magenta][groupItem.index % 3]
+                                border.width: ScalerService.s(activeFocus ? 4 : 2)
+                                border.color: theme.primary.foreground
+                                activeFocusOnTab: true
+                                Accessible.name: root.sourceName(groupItem.modelData.id) + ": " + groupItem.modelData.count
+                                Accessible.role: Accessible.Button
+                                function openGroup() {
+                                    root.selectedGroup = groupItem.modelData.id;
+                                    root.currentView = "packages";
+                                }
+                                Keys.onReturnPressed: openGroup()
+                                Keys.onSpacePressed: openGroup()
+                                scale: bubbleMouse.containsMouse ? 1.03 : 1
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    width: parent.width * 0.8
+                                    spacing: ScalerService.s(8)
+                                    CustomText {
+                                        Layout.fillWidth: true
+                                        name: root.sourceName(groupItem.modelData.id)
+                                        size: "normal"
+                                        isBold: true
+                                        textColor: theme.primary.background
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    CustomText {
+                                        Layout.fillWidth: true
+                                        name: String(groupItem.modelData.count)
+                                        size: "xl"
+                                        textColor: theme.primary.background
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                }
+                                MouseArea {
+                                    id: bubbleMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: bubble.openGroup()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ListView {
+                    id: packageList
+                    anchors.fill: parent
+                    visible: root.currentView === "packages" && !root.busy && root.available
+                    model: root.groupPackages
+                    clip: true
+                    spacing: ScalerService.s(8)
+                    reuseItems: true
+                    ScrollBar.vertical: ScrollBar {}
+                    delegate: Rectangle {
+                        id: packageRow
+                        required property var modelData
+                        width: packageList.width - ScalerService.s(14)
+                        height: ScalerService.s(98)
+                        radius: ScalerService.s(14)
+                        color: rowMouse.containsMouse ? theme.button.background_select : theme.button.background
+                        border.width: ScalerService.s(activeFocus ? 2 : 1)
+                        border.color: activeFocus ? theme.button.border_select : theme.button.border
+                        activeFocusOnTab: true
+                        Accessible.name: modelData.name + " " + root.versionLabel(modelData)
+                        Accessible.role: Accessible.Button
+                        Keys.onReturnPressed: root.openPackage(modelData.id)
+                        Keys.onSpacePressed: root.openPackage(modelData.id)
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: ScalerService.s(12)
+                            spacing: ScalerService.s(2)
+                            RowLayout {
+                                Layout.fillWidth: true
+                                CustomText {
+                                    Layout.fillWidth: true
+                                    name: packageRow.modelData.name
+                                    isBold: true
+                                    size: "normal"
+                                    elide: Text.ElideRight
+                                    textFormat: Text.PlainText
+                                    textColor: theme.button.text
+                                }
+                                CustomText {
+                                    Layout.maximumWidth: packageRow.width / 2
+                                    name: root.versionLabel(packageRow.modelData) + " · " + (packageRow.modelData.outputName || root.tr("unknown"))
+                                    size: "small"
+                                    elide: Text.ElideRight
+                                    textFormat: Text.PlainText
+                                    textColor: theme.button.text
+                                }
+                            }
+                            CustomText {
+                                Layout.fillWidth: true
+                                name: packageRow.modelData.storePath
+                                size: "small"
+                                elide: Text.ElideMiddle
+                                textFormat: Text.PlainText
+                                textColor: theme.button.text
+                            }
+                        }
+                        MouseArea {
+                            id: rowMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openPackage(packageRow.modelData.id)
+                        }
+                    }
+                }
+
+                Flickable {
+                    anchors.fill: parent
+                    visible: root.isDetail && !root.busy && root.available && root.info !== null
+                    contentWidth: width
+                    contentHeight: infoColumn.implicitHeight
+                    clip: true
+                    ScrollBar.vertical: ScrollBar {}
+
+                    ColumnLayout {
+                        id: infoColumn
+                        width: parent.width - ScalerService.s(16)
+                        spacing: ScalerService.s(12)
+                        Repeater {
+                            model: root.info ? [
+                                [root.tr("name"), root.info.name],
+                                [root.tr("version"), root.versionLabel(root.info)],
+                                [root.tr("output"), root.info.outputName],
+                                [root.tr("sources"), root.info.sources.map(root.sourceName).join(", ")],
+                                [root.tr("store_path"), root.info.storePath],
+                                [root.tr("description"), root.info.description],
+                                [root.tr("homepage"), root.info.homepage],
+                                [root.tr("nar_size"), typeof root.info.narSize === "number" && root.info.narSize >= 0
+                                    ? (root.info.narSize / 1048576).toFixed(2) + " MiB" : root.tr("unknown")],
+                                [root.tr("references"), packageService.references.length ? packageService.references.join("\n")
+                                    : root.tr(packageService.infoPartial ? "unknown" : "none")]
+                            ] : []
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: detailColumn.implicitHeight + ScalerService.s(28)
+                                radius: ScalerService.s(14)
+                                color: theme.button.background
+                                border.width: ScalerService.s(1)
+                                border.color: theme.button.border
+                                ColumnLayout {
+                                    id: detailColumn
+                                    anchors.fill: parent
+                                    anchors.margins: ScalerService.s(14)
+                                    spacing: ScalerService.s(6)
+                                    CustomText {
+                                        Layout.fillWidth: true
+                                        name: modelData[0]
+                                        size: "normal"
+                                        isBold: true
+                                        textColor: theme.button.text
+                                        textFormat: Text.PlainText
+                                    }
+                                    CustomText {
+                                        Layout.fillWidth: true
+                                        name: modelData[1] || root.tr("none")
+                                        size: "small"
+                                        wrapMode: Text.WrapAnywhere
+                                        textFormat: Text.PlainText
+                                        textColor: theme.button.text
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-      }
-
     }
-  }
 }

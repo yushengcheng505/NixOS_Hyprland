@@ -65,7 +65,7 @@
     "logout": "Odhlásiť",
     "shutdown": "Vypnúť",
     "restart": "Reštartovať",
-    "lock": "Zamknúť obrazovku"
+    "lock": "Vypnúť obrazovku"
   },
   "mixer": {
     "title": "Zvukový mixér",
@@ -118,7 +118,7 @@
     "yes": "Áno",
     "no": "Nie",
     "sleep": "prejsť do režimu spánku",
-    "lock": "zamknúť obrazovku",
+    "lock": "vypnúť obrazovku",
     "logout": "odhlásiť sa",
     "restart": "reštartovať",
     "shutdown": "vypnúť"

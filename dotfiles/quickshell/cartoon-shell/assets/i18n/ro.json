@@ -65,7 +65,7 @@
     "logout": "Deconectare",
     "shutdown": "Oprire",
     "restart": "Repornire",
-    "lock": "Blocare ecran"
+    "lock": "Oprire ecran"
   },
   "mixer": {
     "title": "Mixer audio",
@@ -118,7 +118,7 @@
     "yes": "Da",
     "no": "Nu",
     "sleep": "treceți în modul somn",
-    "lock": "blocați ecranul",
+    "lock": "opriți ecranul",
     "logout": "vă deconectați",
     "restart": "reporniți",
     "shutdown": "opriți"

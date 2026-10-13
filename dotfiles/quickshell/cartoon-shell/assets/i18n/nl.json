@@ -65,7 +65,7 @@
     "logout": "Uitloggen",
     "shutdown": "Afsluiten",
     "restart": "Herstarten",
-    "lock": "Scherm vergrendelen"
+    "lock": "Scherm uitschakelen"
   },
   "mixer": {
     "title": "Geluidsmixer",
@@ -122,7 +122,7 @@
     "yes": "Ja",
     "no": "Nee",
     "sleep": "naar slaapstand gaan",
-    "lock": "het scherm vergrendelen",
+    "lock": "het scherm uit te schakelen",
     "logout": "uitloggen",
     "restart": "herstarten",
     "shutdown": "afsluiten"

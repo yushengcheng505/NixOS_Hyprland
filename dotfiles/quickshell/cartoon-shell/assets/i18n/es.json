@@ -65,7 +65,7 @@
     "logout": "Cerrar sesión",
     "shutdown": "Apagar",
     "restart": "Reiniciar",
-    "lock": "Bloquear pantalla"
+    "lock": "Apagar pantalla"
   },
   "music": {
     "nowPlaying": "Reproduciendo ahora",
@@ -125,7 +125,7 @@
     "yes": "Sí",
     "no": "No",
     "sleep": "entrar en modo de suspensión",
-    "lock": "bloquear la pantalla",
+    "lock": "apagar la pantalla",
     "logout": "cerrar sesión",
     "restart": "reiniciar",
     "shutdown": "apagar"

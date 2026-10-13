@@ -65,7 +65,7 @@
     "logout": "Wyloguj",
     "shutdown": "Wyłącz",
     "restart": "Uruchom ponownie",
-    "lock": "Zablokuj ekran"
+    "lock": "Wyłącz ekran"
   },
   "mixer": {
     "title": "Mikser audio",
@@ -118,7 +118,7 @@
     "yes": "Tak",
     "no": "Nie",
     "sleep": "przejść w tryb uśpienia",
-    "lock": "zablokować ekran",
+    "lock": "wyłączyć ekran",
     "logout": "wylogować się",
     "restart": "uruchomić ponownie",
     "shutdown": "wyłączyć"

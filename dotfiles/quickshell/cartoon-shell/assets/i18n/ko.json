@@ -65,7 +65,7 @@
     "logout": "로그아웃",
     "shutdown": "시스템 종료",
     "restart": "다시 시작",
-    "lock": "화면 잠금"
+    "lock": "화면 끄기"
   },
   "mixer": {
     "title": "음향 믹서",
@@ -122,7 +122,7 @@
     "yes": "예",
     "no": "아니오",
     "sleep": "절전 모드로 전환",
-    "lock": "화면 잠금",
+    "lock": "화면을 끄기",
     "logout": "로그아웃",
     "restart": "다시 시작",
     "shutdown": "시스템 종료"

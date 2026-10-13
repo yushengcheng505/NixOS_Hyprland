@@ -28,6 +28,11 @@ Scope {
       root.shouldShowOsd = true;
       hideTimer.restart();
     }
+
+    function onMutedChanged() {
+      root.shouldShowOsd = true;
+      hideTimer.restart();
+    }
   }
 
   Timer {

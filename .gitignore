@@ -3,3 +3,5 @@
 .hyprland-honor-fmbp-backup-*/
 *.deb
 *.distro
+/result
+/result-*

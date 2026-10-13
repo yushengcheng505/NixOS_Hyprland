@@ -60,6 +60,14 @@ The activation script is deliberately strict:
 
 Because the targets are symlinks into the checkout, theme changes written by Quickshell/matugen land in `dotfiles/` directly and survive reboots; they appear as local modifications in `git status`.
 
+## Direct Hyprland session
+
+Select **Hyprland** in SDDM. This configuration does not use UWSM. The session launcher retains upstream `start-hyprland` and its watchdog, and stops `hyprland-session.target` when the launcher exits. A runtime lock prevents a second managed direct session for the same user. Cleanup cannot be guaranteed if the launcher itself is killed with SIGKILL.
+
+On compositor readiness, `hyprland-session-ready` stops stale session services, imports the display/session environment into the user manager and D-Bus activation environment, resets only failed session services, then starts the target. Its dependency starts `graphical-session.target`; neither target needs to be active before readiness runs. Quickshell, hypridle, EasyCLIProxyAPI and the standard portal services are attached to that target. The headless Throne PAC server remains independent of the graphical session. Readiness diagnostics are recorded in `journalctl -b -t hyprland-session-ready`.
+
+For changes to session management, prefer `sudo nixos-rebuild boot --flake path:/home/klenko/nixos#nixos`, then save your work and reboot. This avoids replacing portal and GUI services in the running session. Later, also test logout and login without rebooting. Do not manually run the readiness helper from a terminal outside the intended compositor environment. Check `systemctl --user --failed`, `qs list --all`, and actual Discord screen sharing after the new login. A successful build alone does not verify logout/login cleanup or screen capture.
+
 ## What is included
 
 - NixOS system and hardware configuration;

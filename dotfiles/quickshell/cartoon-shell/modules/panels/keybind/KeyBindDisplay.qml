@@ -54,7 +54,8 @@ Item {
     title: "Dashboard & Panels",
     shortcuts: [
     { key: "SUPER + D", action: "Toggle Dashboard" },
-    { key: "SUPER + L", action: "Lock Screen" },
+    { key: "SUPER + L", action: "Turn Off Screen" },
+    { key: "SUPER + SHIFT + L", action: "Turn Off Screen" },
     { key: "SUPER + A", action: "Toggle Calendar" },
     { key: "SUPER + B", action: "Toggle Bluetooth Panel" },
     { key: "SUPER + C", action: "Toggle CPU Monitor" },

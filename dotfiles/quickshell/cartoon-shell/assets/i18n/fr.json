@@ -65,7 +65,7 @@
     "logout": "Déconnexion",
     "shutdown": "Éteindre",
     "restart": "Redémarrer",
-    "lock": "Verrouiller l'écran"
+    "lock": "Éteindre l'écran"
   },
   "music": {
     "nowPlaying": "Lecture en cours",
@@ -122,7 +122,7 @@
     "yes": "Oui",
     "no": "Non",
     "sleep": "passer en mode veille",
-    "lock": "verrouiller l'écran",
+    "lock": "éteindre l'écran",
     "logout": "vous déconnecter",
     "restart": "redémarrer",
     "shutdown": "éteindre"

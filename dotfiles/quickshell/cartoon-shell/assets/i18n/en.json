@@ -65,7 +65,7 @@
     "logout": "Logout",
     "shutdown": "Shutdown",
     "restart": "Restart",
-    "lock": "Lock Screen"
+    "lock": "Turn Off Screen"
   },
   "mixer": {
     "title": "Audio Mixer",
@@ -119,7 +119,7 @@
     "yes": "Yes",
     "no": "No",
     "sleep": "enter sleep mode",
-    "lock": "lock the screen",
+    "lock": "turn off the screen",
     "logout": "logout",
     "restart": "restart",
     "shutdown": "shutdown"
@@ -203,7 +203,13 @@
     "enter_password": "Enter password",
     "password_required": "Please enter password",
     "wrong_password": "Wrong password",
-    "connectionError": "Incorrect password or connection failed"
+    "connectionError": "Incorrect password or connection failed",
+    "connection_failed": "Connection failed. Check credentials and network availability.",
+    "forget_failed": "Could not forget the saved connection.",
+    "saved_connection": "Saved connection",
+    "connecting": "Connecting…",
+    "use_saved_connection": "Use saved connection",
+    "change_password": "Change password"
   },
   "infoSection": {
     "name": "CPU Name",
@@ -263,5 +269,36 @@
   },
   "fileDialog": {
     "search_folder": "Search folders..."
+  },
+  "packages": {
+    "title": "Nix packages",
+    "explanation": "Unique selected package outputs in the active system and user profiles, not just GUI apps or all store dependencies.",
+    "source_system": "System",
+    "source_user": "User",
+    "source_both": "Both profiles",
+    "loading": "Loading packages…",
+    "loading_info": "Loading package details…",
+    "unavailable": "Package data unavailable",
+    "empty": "No selected package outputs",
+    "partial": "Incomplete data: some sources or details are unavailable.",
+    "partial_short": "partial",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "back": "Back",
+    "start_failed": "Could not start the package reader. Check that Python 3 is available.",
+    "process_failed": "The package reader did not complete successfully.",
+    "invalid_response": "The package reader returned invalid or incompatible data.",
+    "unknown": "Unknown",
+    "none": "None",
+    "inferred": "(inferred)",
+    "name": "Name",
+    "version": "Version",
+    "output": "Output",
+    "sources": "Sources",
+    "store_path": "Store path",
+    "description": "Description",
+    "homepage": "Homepage",
+    "nar_size": "NAR archive size (MiB, not disk usage)",
+    "references": "Direct store references"
   }
 }

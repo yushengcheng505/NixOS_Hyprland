@@ -104,6 +104,7 @@ let
     exec = "discord -- %U";
     icon = "discord";
     categories = [ "Network" "InstantMessaging" ];
+    mimeTypes = [ "x-scheme-handler/discord" ];
   };
 
   discord = pkgs.buildFHSEnv {
@@ -149,6 +150,7 @@ let
     exec = "chatgpt --proxy-server=http://127.0.0.1:2080 %U";
     icon = "chatgpt";
     categories = [ "Utility" "Development" ];
+    mimeTypes = [ "x-scheme-handler/codex" ];
   };
 
   chatgpt = pkgs.buildFHSEnv {
@@ -289,8 +291,49 @@ let
   };
 
   easycliproxyapi = pkgs.callPackage ./pkgs/easycliproxyapi.nix { };
+
+  hypridleConfig = pkgs.writeText "hypridle-direct.conf" ''
+    listener {
+      timeout = 900
+      on-timeout = ${config.programs.hyprland.package}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
+      on-resume = ${config.programs.hyprland.package}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+    }
+  '';
+
+  packageManifestEntries = pkgs.lib.concatMap (
+    package:
+    let
+      selectedOutputs =
+        (if !(package.outputSpecified or false) && (package.meta.outputsToInstall or null) != null
+        then map (name: package.${name}) package.meta.outputsToInstall
+        else [ package ])
+        ++ pkgs.lib.concatMap (
+          name: pkgs.lib.optional (builtins.hasAttr name package) package.${name}
+        ) config.environment.extraOutputsToInstall;
+      metadata = package.meta or { };
+      homepage = metadata.homepage or "";
+    in
+    map (output: {
+      storePath = toString output;
+      name = pkgs.lib.getName package;
+      version = package.version or "";
+      outputName = output.outputName or "out";
+      description = if builtins.isString (metadata.description or "") then metadata.description or "" else "";
+      homepage = if builtins.isString homepage then homepage
+        else if builtins.isList homepage then pkgs.lib.concatStringsSep " " (builtins.filter builtins.isString homepage)
+        else "";
+    }) selectedOutputs
+  ) config.environment.systemPackages;
+  packageManifest = builtins.attrValues (builtins.listToAttrs (
+    map (package: { name = builtins.unsafeDiscardStringContext package.storePath; value = package; }) packageManifestEntries
+  ));
 in
 {
+  environment.etc."cartoon-shell/system-packages.json".text = builtins.toJSON {
+    schemaVersion = 1;
+    packages = packageManifest;
+  };
+
   system.activationScripts.hyprlandConfigLink = desktopConfigLink "hypr" "hyprland.lua";
   system.activationScripts.quickshellConfigLink = desktopConfigLink "quickshell/cartoon-shell" "shell.qml";
 
@@ -458,7 +501,6 @@ in
   systemd.user.services.throne-pac = {
     unitConfig = {
       Description = "Serve the Throne PAC file for Chromium browsers";
-      After = [ "graphical-session.target" ];
     };
     serviceConfig = {
       ExecStart = "${pkgs.darkhttpd}/bin/darkhttpd ${thronePacDir} --addr 127.0.0.1 --port 18765 --no-listing";
@@ -468,17 +510,55 @@ in
     wantedBy = [ "default.target" ];
   };
 
-  # WebKitGTK under native Wayland renders the webview shrunk on this
-  # fractional-scale output, so the wrapper pins GDK_BACKEND=x11 (XWayland)
-  # for a correctly sized UI. The direct session does not activate
-  # graphical-session.target, so hyprland.start imports the Wayland
-  # environment and then starts this private target; GUI units hang off it
-  # instead of default.target, which is reached before Hyprland exists.
   systemd.user.targets.hyprland-session = {
     unitConfig = {
       Description = "Hyprland direct session (Wayland environment imported)";
-      After = [ "default.target" ];
+      DefaultDependencies = false;
+      BindsTo = [ "graphical-session.target" ];
+      After = [ "default.target" "graphical-session.target" ];
     };
+  };
+
+  systemd.user.services.quickshell = {
+    path = [ config.system.path ];
+    unitConfig = {
+      Description = "Quickshell Cartoon Shell";
+      After = [ "hyprland-session.target" ];
+      PartOf = [ "hyprland-session.target" ];
+      Requisite = [ "hyprland-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    serviceConfig = {
+      Environment = [
+        "LANG=en_US.UTF-8"
+        "LANGUAGE=en_US:en"
+        "LC_ALL=en_US.UTF-8"
+        "QML2_IMPORT_PATH=/run/current-system/sw/lib/qt-6/qml"
+        "QML_IMPORT_PATH=/run/current-system/sw/lib/qt-6/qml"
+        "QT_QPA_PLATFORM=wayland"
+        "QT_QPA_PLATFORMTHEME=gtk3"
+      ];
+      ExecStart = "${pkgs.quickshell}/bin/quickshell -n -p %h/.config/quickshell/cartoon-shell";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    wantedBy = [ "hyprland-session.target" ];
+  };
+
+  systemd.user.services.hypridle-direct = {
+    unitConfig = {
+      Description = "Turn off displays after 15 minutes of inactivity";
+      After = [ "hyprland-session.target" ];
+      PartOf = [ "hyprland-session.target" ];
+      Requisite = [ "hyprland-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    serviceConfig = {
+      ExecStart = "${pkgs.hypridle}/bin/hypridle -c ${hypridleConfig}";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    wantedBy = [ "hyprland-session.target" ];
   };
 
   # The self-update helper is a plain child in the service cgroup; with the
@@ -489,6 +569,8 @@ in
       Description = "EasyCLIProxyAPI desktop console";
       After = [ "hyprland-session.target" ];
       PartOf = [ "hyprland-session.target" ];
+      Requisite = [ "hyprland-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     serviceConfig = {
       Environment = [

@@ -65,7 +65,7 @@
     "logout": "退出登录",
     "shutdown": "关机",
     "restart": "重新启动",
-    "lock": "锁定屏幕"
+    "lock": "关闭屏幕"
   },
   "mixer": {
     "title": "音频混音器",
@@ -118,7 +118,7 @@
     "yes": "是",
     "no": "否",
     "sleep": "进入睡眠模式",
-    "lock": "锁定屏幕",
+    "lock": "关闭屏幕",
     "logout": "退出登录",
     "restart": "重新启动",
     "shutdown": "关机"

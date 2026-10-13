@@ -12,9 +12,16 @@ Rectangle {
   property bool showPassword: false
   property bool hasError: false
   property string errorMessage: ""
-  property bool hasSavedPassword: networkData.saved_password && networkData.saved_password !== "--" && networkData.saved_password !== ""
-  property bool isConnected: networkData.ssid === wifiManager.connectedWifi
+  readonly property bool hasSavedConnection: !!networkData.hasSavedConnection
+  readonly property bool isConnected: networkData.ssid === wifiManager.connectedWifi
+  readonly property bool isOpenNetwork: networkData.security === "--" || networkData.security === "Open" || networkData.security === ""
+  readonly property bool busy: wifiManager.connectionInProgress || wifiManager.forgetInProgress
+  readonly property bool connecting: wifiManager.connectionInProgress && wifiManager.currentAttemptSSID === networkData.ssid
+  property bool useNewPassword: false
+  property bool attemptPending: false
+  property bool forgetPending: false
 
+  implicitHeight: content.implicitHeight + ScalerService.s(24)
   color: theme.primary.dim_background
   radius: ScalerService.s(12)
   border.width: ScalerService.s(2)
@@ -26,110 +33,121 @@ Rectangle {
     }
   }
 
+  function connect(useSavedConnection) {
+    if (busy)
+      return;
+    const password = useSavedConnection || isOpenNetwork ? undefined : wifiPassword.text;
+    if (!useSavedConnection && !isOpenNetwork && password.length === 0) {
+      hasError = true;
+      errorMessage = lang?.wifi?.password_required || "Enter password";
+      return;
+    }
+    hasError = false;
+    errorMessage = "";
+    attemptPending = wifiManager.connectToWifi(networkData.ssid, password);
+  }
+
+  Connections {
+    target: wifiManager
+
+    function onConnectionFinished(ssid, success, errorMessage) {
+      if (!passwordBox.attemptPending || ssid !== passwordBox.networkData.ssid)
+        return;
+      passwordBox.attemptPending = false;
+      passwordBox.hasError = !success;
+      passwordBox.errorMessage = errorMessage;
+      if (success) {
+        wifiPassword.text = "";
+        passwordBox.showPassword = false;
+        passwordBox.useNewPassword = false;
+        wifiManager.userTyping = false;
+        wifiManager.openSsid = "";
+      } else if (passwordBox.hasSavedConnection && !passwordBox.isOpenNetwork) {
+        passwordBox.useNewPassword = true;
+      }
+    }
+
+    function onForgetFinished(ssid, success) {
+      if (!passwordBox.forgetPending || ssid !== passwordBox.networkData.ssid)
+        return;
+      passwordBox.forgetPending = false;
+      passwordBox.hasError = !success;
+      passwordBox.errorMessage = success ? "" : (lang?.wifi?.forget_failed || "Could not forget the saved connection.");
+      if (success) {
+        wifiPassword.text = "";
+        wifiManager.userTyping = false;
+        wifiManager.openSsid = "";
+      }
+    }
+
+    function onConnectionInProgressChanged() {
+      if (!wifiManager.connectionInProgress && wifiManager.currentAttemptSSID === "")
+        passwordBox.attemptPending = false;
+    }
+  }
+
   ColumnLayout {
+    id: content
     anchors.fill: parent
     anchors.margins: ScalerService.s(12)
     spacing: ScalerService.s(8)
 
     Rectangle {
       Layout.fillWidth: true
-      height: ScalerService.s(30)
+      implicitHeight: errorText.implicitHeight + ScalerService.s(12)
       visible: passwordBox.hasError
       color: theme.normal.red
       radius: ScalerService.s(6)
       Text {
+        id: errorText
         anchors.centerIn: parent
-        text: "❌ " + passwordBox.errorMessage
+        width: parent.width - ScalerService.s(12)
+        text: passwordBox.errorMessage
+        wrapMode: Text.Wrap
+        horizontalAlignment: Text.AlignHCenter
         color: theme.primary.foreground
         font.pixelSize: ScalerService.s(12)
         font.family: "ComicShannsMono Nerd Font"
       }
     }
 
-    // Phần hiển thị mật khẩu đã lưu (luôn hiển thị nếu có saved password)
     RowLayout {
       Layout.fillWidth: true
       spacing: ScalerService.s(8)
-      visible: passwordBox.hasSavedPassword || networkData.security === "--"
+      visible: !passwordBox.useNewPassword && (passwordBox.hasSavedConnection || passwordBox.isOpenNetwork)
 
-      Rectangle {
+      Text {
         Layout.fillWidth: true
-        height: ScalerService.s(40)
-        color: theme.primary.background
-        radius: ScalerService.s(8)
-        border.color: theme.button.border_select
-        visible: networkData.security !== "--"
-        border.width: ScalerService.s(1)
-
-        Text {
-          anchors.centerIn: parent
-          text: passwordBox.showPassword ? networkData.saved_password : "••••••••"
-          font.family: "ComicShannsMono Nerd Font"
-          color: theme.primary.foreground
-          font.pixelSize: ScalerService.s(14)
-        }
+        text: passwordBox.hasSavedConnection ? (lang?.wifi?.saved_connection || "Saved connection") : (lang?.wifi?.no_password || "No password required")
+        wrapMode: Text.Wrap
+        font.family: "ComicShannsMono Nerd Font"
+        color: theme.primary.foreground
+        font.pixelSize: ScalerService.s(14)
       }
 
       ButtonText {
-        name: passwordBox.showPassword ? "visibility" : "visibility_off"
+        name: passwordBox.connecting ? (lang?.wifi?.connecting || "Connecting…") : (lang?.wifi?.connect || "Connect")
         size: "xs"
         implicitHeight: ScalerService.s(30)
-        fontFamily: "Material Symbols Rounded"
-        visible: networkData.security !== "--"
-        onClicked: {
-          passwordBox.showPassword = !passwordBox.showPassword;
-        }
-      }
-
-      ButtonText {
-        name: lang?.wifi?.connect || "Connect"
-        size: "xs"
-        implicitHeight: ScalerService.s(30)
-        visible: !networkData.isConnected
-
-        onClicked: {
-          // Kết nối với mật khẩu đã lưu
-          wifiManager.connectToWifi(networkData.ssid, networkData.saved_password);
-
-          Qt.callLater(function () {
-              if (wifiManager.connectionError) {
-                passwordBox.hasError = true;
-                passwordBox.errorMessage = lang?.wifi?.wrong_password || "Wrong password";
-                // Nếu sai mật khẩu, xóa saved password để người dùng nhập lại
-                networkData.saved_password = "";
-                passwordBox.hasSavedPassword = false;
-              }
-          });
-        }
-      }
-
-      ButtonText {
-        name: lang?.wifi?.forget || "Forget"
-        size: "xs"
-        implicitHeight: ScalerService.s(30)
-        visible: networkData.isConnected
-        onClicked: {
-          wifiManager.forgetPassword(networkData.ssid);
-          passwordBox.hasSavedPassword = false;
-          networkData.saved_password = "";
-          wifiManager.openSsid = "";
-          wifiManager.scanWifiNetworks();
-        }
+        visible: !passwordBox.isConnected
+        enabled: !passwordBox.busy
+        opacity: enabled ? 1 : 0.5
+        onClicked: passwordBox.connect(true)
       }
     }
 
-    // Phần nhập mật khẩu mới (khi chưa có saved password)
     RowLayout {
       Layout.fillWidth: true
       spacing: ScalerService.s(8)
-      visible: !passwordBox.hasSavedPassword && networkData.security !== "--"
+      visible: !passwordBox.isOpenNetwork && (!passwordBox.hasSavedConnection || passwordBox.useNewPassword)
 
       TextField {
         id: wifiPassword
         Layout.fillWidth: true
-          placeholderText: networkData.security === "Open" ? (lang?.wifi?.no_password || "No password required") : (lang?.wifi?.enter_password || "Enter password")
+        implicitHeight: ScalerService.s(40)
+        placeholderText: lang?.wifi?.enter_password || "Enter password"
         echoMode: passwordBox.showPassword ? TextInput.Normal : TextInput.Password
-        enabled: networkData.security !== "Open"
+        enabled: !passwordBox.busy
         font.family: "ComicShannsMono Nerd Font"
         font.pixelSize: ScalerService.s(14)
         horizontalAlignment: TextInput.AlignHCenter
@@ -140,10 +158,8 @@ Rectangle {
           border.color: theme.button.border_select
           border.width: ScalerService.s(1)
         }
-
-        onActiveFocusChanged: {
-          wifiManager.userTyping = activeFocus;
-        }
+        onActiveFocusChanged: wifiManager.userTyping = activeFocus
+        onAccepted: passwordBox.connect(false)
       }
 
       ButtonText {
@@ -151,45 +167,48 @@ Rectangle {
         size: "xs"
         implicitHeight: ScalerService.s(30)
         fontFamily: "Material Symbols Rounded"
-        onClicked: {
-          passwordBox.showPassword = !passwordBox.showPassword;
-        }
+        enabled: !passwordBox.busy
+        opacity: enabled ? 1 : 0.5
+        onClicked: passwordBox.showPassword = !passwordBox.showPassword
       }
 
       ButtonText {
-        name: lang?.wifi?.connect || "Connect"
+        name: passwordBox.connecting ? (lang?.wifi?.connecting || "Connecting…") : (lang?.wifi?.connect || "Connect")
         size: "xs"
         implicitHeight: ScalerService.s(30)
+        enabled: !passwordBox.busy
+        opacity: enabled ? 1 : 0.5
+        onClicked: passwordBox.connect(false)
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: ScalerService.s(8)
+      visible: passwordBox.hasSavedConnection
+
+      ButtonText {
+        name: passwordBox.useNewPassword ? (lang?.wifi?.use_saved_connection || "Use saved connection") : (lang?.wifi?.change_password || "Change password")
+        size: "xs"
+        implicitHeight: ScalerService.s(30)
+        visible: !passwordBox.isOpenNetwork
+        enabled: !passwordBox.busy
+        opacity: enabled ? 1 : 0.5
+        onClicked: passwordBox.useNewPassword = !passwordBox.useNewPassword
+      }
+
+      Item { Layout.fillWidth: true }
+
+      ButtonText {
+        name: lang?.wifi?.forget || "Forget"
+        size: "xs"
+        implicitHeight: ScalerService.s(30)
+        enabled: !passwordBox.busy
+        opacity: enabled ? 1 : 0.5
         onClicked: {
-          var password = wifiPassword.text.trim();
-
-          if (password.length === 0 && networkData.security !== "Open" && networkData.security !== "--")
-          {
-            passwordBox.hasError = true;
-          passwordBox.errorMessage = lang?.wifi?.password_required || "Enter password";
-            return;
-          }
-
           passwordBox.hasError = false;
           passwordBox.errorMessage = "";
-
-          wifiManager.connectToWifi(networkData.ssid, password);
-
-          Qt.callLater(function () {
-              if (wifiManager.connectionError) {
-                passwordBox.hasError = true;
-                passwordBox.errorMessage = lang?.wifi?.wrong_password || "Wrong password";
-              } else {
-                // Lưu mật khẩu sau khi kết nối thành công
-                if (password) {
-                  networkData.saved_password = password;
-                  passwordBox.hasSavedPassword = true;
-                }
-                wifiManager.openSsid = "";
-              }
-          });
-
-          wifiPassword.text = "";
+          passwordBox.forgetPending = wifiManager.forgetPassword(networkData.ssid);
         }
       }
     }

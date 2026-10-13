@@ -65,7 +65,7 @@
     "logout": "Abmelden",
     "shutdown": "Herunterfahren",
     "restart": "Neu starten",
-    "lock": "Bildschirm sperren"
+    "lock": "Bildschirm ausschalten"
   },
   "music": {
     "nowPlaying": "Wird abgespielt",
@@ -122,7 +122,7 @@
     "yes": "Ja",
     "no": "Nein",
     "sleep": "in den Ruhezustand wechseln",
-    "lock": "den Bildschirm sperren",
+    "lock": "den Bildschirm auszuschalten",
     "logout": "sich abmelden",
     "restart": "neu starten",
     "shutdown": "herunterfahren"

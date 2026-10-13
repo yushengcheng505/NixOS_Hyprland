@@ -65,7 +65,7 @@
     "logout": "Kirjaudu ulos",
     "shutdown": "Sammuta",
     "restart": "Käynnistä uudelleen",
-    "lock": "Lukitse näyttö"
+    "lock": "Sammuta näyttö"
   },
   "mixer": {
     "title": "Äänimikseri",
@@ -118,7 +118,7 @@
     "yes": "Kyllä",
     "no": "Ei",
     "sleep": "siirtyä lepotilaan",
-    "lock": "lukita näytön",
+    "lock": "sammuttaa näytön",
     "logout": "kirjautua ulos",
     "restart": "käynnistää uudelleen",
     "shutdown": "sammuttaa"

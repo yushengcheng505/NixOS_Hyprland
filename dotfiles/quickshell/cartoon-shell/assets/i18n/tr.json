@@ -65,7 +65,7 @@
     "logout": "Çıkış yap",
     "shutdown": "Kapat",
     "restart": "Yeniden başlat",
-    "lock": "Ekranı kilitle"
+    "lock": "Ekranı kapat"
   },
   "mixer": {
     "title": "Ses Mikseri",
@@ -122,7 +122,7 @@
     "yes": "Evet",
     "no": "Hayır",
     "sleep": "Uyku moduna geçmek",
-    "lock": "Ekranı kilitlemek",
+    "lock": "Ekranı kapatmak",
     "logout": "Çıkış yapmak",
     "restart": "Yeniden başlatmak",
     "shutdown": "Kapatmak"

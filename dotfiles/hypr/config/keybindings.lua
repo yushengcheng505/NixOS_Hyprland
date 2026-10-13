@@ -25,15 +25,12 @@ hl.bind(
 	hl.dsp.exec_cmd("qs ipc --path ~/.config/quickshell/cartoon-shell/ call dashboard getToggle")
 )
 
--- Lock
+-- Screen off
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock"))
 
--- Lock + power off OLED panel (wakes on any input)
 hl.bind(
 	mainMod .. " + SHIFT + L",
-	hl.dsp.exec_cmd(
-		"qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock & sleep 1 && hyprctl dispatch 'hl.dsp.dpms(\"eDP-1\", false)'"
-	)
+	hl.dsp.exec_cmd("qs ipc --path ~/.config/quickshell/cartoon-shell/ call lock lock")
 )
 
 -- Panels
@@ -88,7 +85,7 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- Multimedia keys
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd("wpctl set-volume -l 2.0 @DEFAULT_AUDIO_SINK@ 5%+"),
+	hl.dsp.exec_cmd("wpctl set-volume -l 2.0 @DEFAULT_AUDIO_SINK@ 5%+ && wpctl set-mute @DEFAULT_AUDIO_SINK@ 0"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
@@ -99,12 +96,12 @@ hl.bind(
 hl.bind(
 	"XF86AudioMute",
 	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),
-	{ locked = true, repeating = true }
+	{ locked = true }
 )
 hl.bind(
 	"XF86AudioMicMute",
 	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
-	{ locked = true, repeating = true }
+	{ locked = true }
 )
 
 -- Brightness control

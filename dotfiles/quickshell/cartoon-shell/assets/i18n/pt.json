@@ -65,7 +65,7 @@
     "logout": "Sair",
     "shutdown": "Desligar",
     "restart": "Reiniciar",
-    "lock": "Bloquear tela"
+    "lock": "Desligar tela"
   },
   "music": {
     "nowPlaying": "Tocando agora",
@@ -122,7 +122,7 @@
     "yes": "Sim",
     "no": "Não",
     "sleep": "entrar em modo de suspensão",
-    "lock": "bloquear a tela",
+    "lock": "desligar a tela",
     "logout": "sair",
     "restart": "reiniciar",
     "shutdown": "desligar"

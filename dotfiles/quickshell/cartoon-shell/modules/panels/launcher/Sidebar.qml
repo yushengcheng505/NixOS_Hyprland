@@ -294,7 +294,7 @@ Rectangle {
             }
         }
 
-        // Khóa màn hình - Sửa theo chuẩn CustomRectangle
+        // Tắt màn hình - Sửa theo chuẩn CustomRectangle
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: ScalerService.s(60)
@@ -314,13 +314,13 @@ Rectangle {
                     anchors.margins: ScalerService.s(8)
 
                     IconImage {
-                        path: "system/sys-lock.png"
+                        path: "settings/lockscreen.png"
                         rotation: mouseAreaLock.containsMouse ? 5 : 0
                         opacity: root.animationProgress > 0.5 ? 1 : 0
                         visible: Settings.appearance.styleIcons === "image"
                     }
                     IconText {
-                        name: "lock_clock"
+                        name: "desktop_windows"
                         opacity: root.animationProgress > 0.5 ? 1 : 0
                         textColor: theme.button.text
                         visible: Settings.appearance.styleIcons === "icon"
@@ -368,7 +368,7 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         SoundService.playSound("pick");
-                        showConfirmDialog("lock", lang?.confirm?.lock || "khóa màn hình");
+                        showConfirmDialog("lock", lang?.confirm?.lock || "tắt màn hình");
                     }
                     onEntered: {
                         SoundService.playSound("hover");

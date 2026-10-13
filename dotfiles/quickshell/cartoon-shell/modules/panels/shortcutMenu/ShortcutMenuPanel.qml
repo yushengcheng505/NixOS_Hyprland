@@ -137,8 +137,8 @@ PanelWindow {
             }
 
             Com.ItemShortcut {
-                icon: Directories.assetsPath + "/system/sys-lock.png"
-                name: "Lock"
+                icon: Directories.assetsPath + "/settings/lockscreen.png"
+                name: LanguageService.t("system", "lock")
                 onClicked: Quickshell.execDetached(["qs", "ipc", "--path", Directories.home + "/.config/quickshell/cartoon-shell/", "call", "lock", "lock"])
             }
             Com.ItemShortcut {

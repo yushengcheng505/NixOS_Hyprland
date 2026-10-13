@@ -96,8 +96,12 @@ Variants {
                 transitionAnimation.stop();
                 debounceTimer.stop();
                 shaderLoader.active = false;
-                currentWallpaper.source = "";
-                nextWallpaper.source = "";
+                currentVideo.stop();
+                nextVideo.stop();
+                currentImage.source = "";
+                nextImage.source = "";
+                currentVideo.source = "";
+                nextVideo.source = "";
             }
 
             Connections {

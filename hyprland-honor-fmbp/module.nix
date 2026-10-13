@@ -1,18 +1,60 @@
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
+let
+  sessionSupervisor = pkgs.writeShellApplication {
+    name = "hyprland-session-supervisor";
+    runtimeInputs = [ pkgs.util-linux pkgs.systemd pkgs.coreutils ];
+    text = builtins.readFile ./hyprland-session.sh;
+  };
+  sessionLauncher = pkgs.writeShellApplication {
+    name = "hyprland-session";
+    text = ''
+      exec ${lib.getExe sessionSupervisor} ${config.programs.hyprland.package}/bin/start-hyprland "$@"
+    '';
+  };
+  sessionReady = pkgs.writeShellApplication {
+    name = "hyprland-session-ready";
+    runtimeInputs = [ pkgs.util-linux pkgs.systemd pkgs.dbus pkgs.coreutils ];
+    text = builtins.readFile ./hyprland-session-ready.sh;
+  };
+  sessionDesktop = pkgs.runCommand "hyprland-direct-session" {
+    passthru.providedSessions = [ "hyprland" ];
+  } ''
+    mkdir -p "$out/share/wayland-sessions"
+    cat > "$out/share/wayland-sessions/hyprland.desktop" <<EOF
+    [Desktop Entry]
+    Name=Hyprland
+    Comment=An intelligent dynamic tiling Wayland compositor
+    Exec=${lib.getExe sessionLauncher}
+    Type=Application
+    DesktopNames=Hyprland
+    Keywords=tiling;wayland;compositor;
+    EOF
+  '';
+  portalService = {
+    overrideStrategy = "asDropin";
+    unitConfig = {
+      Requisite = [ "hyprland-session.target" ];
+      After = [ "hyprland-session.target" ];
+      PartOf = [ "hyprland-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    wantedBy = [ "hyprland-session.target" ];
+  };
+in
 {
   programs.hyprland = {
     enable = true;
-    withUWSM = true;
+    withUWSM = false;
     xwayland.enable = true;
   };
 
-
-  programs.uwsm.waylandCompositors.hyprland = {
-    prettyName = "Hyprland";
-    comment = "Hyprland compositor managed by UWSM";
-    binPath = "/run/current-system/sw/bin/Hyprland";
-  };
+  services.dbus.implementation = "broker";
+  services.displayManager.sessionPackages = lib.mkForce [ sessionDesktop ];
 
   xdg.portal = {
     enable = true;
@@ -23,28 +65,10 @@
     };
   };
 
-  systemd.user.services.xdg-desktop-portal-hyprland-direct = {
-    unitConfig = {
-      Description = "Hyprland desktop portal for direct sessions";
-    };
-    serviceConfig = {
-      ExecStart = "${pkgs.xdg-desktop-portal-hyprland}/libexec/xdg-desktop-portal-hyprland";
-      Restart = "on-failure";
-      RestartSec = 2;
-    };
-    wantedBy = [ "default.target" ];
-  };
-
-  systemd.user.services.xdg-desktop-portal-direct = {
-    unitConfig = {
-      Description = "XDG desktop portal for direct Hyprland sessions";
-    };
-    serviceConfig = {
-      ExecStart = "${pkgs.xdg-desktop-portal}/libexec/xdg-desktop-portal";
-      Restart = "always";
-      RestartSec = 2;
-    };
-    wantedBy = [ "default.target" ];
+  systemd.user.services = {
+    xdg-desktop-portal = portalService;
+    xdg-desktop-portal-hyprland = portalService;
+    xdg-desktop-portal-gtk = portalService;
   };
 
   # The laptop uses Intel i915/Arc graphics; this keeps VA-API and Wayland
@@ -62,9 +86,10 @@
   };
 
   environment.systemPackages = with pkgs; [
-      fastfetch
-      dotool
-      app2unit
+    sessionReady
+    fastfetch
+    dotool
+    app2unit
     quickshell
     kitty
     nautilus

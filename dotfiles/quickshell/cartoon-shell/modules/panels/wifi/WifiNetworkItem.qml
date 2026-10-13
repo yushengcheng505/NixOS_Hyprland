@@ -9,6 +9,7 @@ ColumnLayout {
   id: networkItem
   property var wifiManager
   property var networkData
+  readonly property bool isConnected: networkData.ssid === wifiManager.connectedWifi
 
   spacing: ScalerService.s(4)
 
@@ -19,12 +20,12 @@ ColumnLayout {
     Layout.preferredHeight: ScalerService.s(70)
     color: mouseArea.containsMouse
     ? Qt.alpha(theme.button.background_select, 0.5)
-    : (networkData.isConnected
+    : (networkItem.isConnected
       ? Qt.alpha(theme.button.background, 0.5)
       : Qt.alpha(theme.primary.dim_background, 0.5))
     radius: ScalerService.s(Settings.appearance.radius2)
     border.width: Settings.appearance.enableBorder ? ScalerService.s(2) : 0
-    border.color: networkData.isConnected ? theme.button.border : theme.normal.black
+    border.color: networkItem.isConnected ? theme.button.border : theme.normal.black
 
     RowLayout {
       anchors.margins: ScalerService.s(8)
@@ -35,27 +36,27 @@ ColumnLayout {
           name: networkData.ssid
           size: "small"
           isBold: true
-          textColor: networkData.isConnected ? theme.primary.foreground : theme.primary.foreground
+          textColor: networkItem.isConnected ? theme.primary.foreground : theme.primary.foreground
         }
         CustomText {
           name: networkData.security + " • " + networkData.signal
           size: "xs"
-          textColor: networkData.isConnected ? theme.button.text : theme.primary.dim_foreground
+          textColor: networkItem.isConnected ? theme.button.text : theme.primary.dim_foreground
         }
       }
       Item{Layout.fillWidth: true}
 
       Rectangle {
-        color: networkData.isConnected ? theme.normal.green : theme.button.background
+        color: networkItem.isConnected ? theme.normal.green : theme.button.background
         Layout.preferredHeight: iconItem.height
         Layout.preferredWidth: iconItem.height
         radius: ScalerService.s(16)
         IconText{
           anchors.centerIn: parent
           id: iconItem
-          name: networkData.isConnected ? "check" : networkData.saved_password != "--" ? "lock_open" : "lock"
+          name: networkItem.isConnected ? "check" : networkData.hasSavedConnection ? "lock_open" : "lock"
           size: "small"
-          textColor: networkData.isConnected ? theme.primary.background : theme.button.text
+          textColor: networkItem.isConnected ? theme.primary.background : theme.button.text
         }
 
       }
@@ -67,6 +68,7 @@ ColumnLayout {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
+      enabled: !wifiManager.connectionInProgress && !wifiManager.forgetInProgress
       onClicked: {
         if (wifiManager.openSsid === networkData.ssid) {
           wifiManager.openSsid = "";
@@ -79,7 +81,7 @@ ColumnLayout {
 
   Com.WifiPasswordBox {
     Layout.fillWidth: true
-    Layout.preferredHeight: ScalerService.s(70)
+    Layout.preferredHeight: implicitHeight
     visible: networkItem.networkData.ssid === wifiManager.openSsid
     networkData: networkItem.networkData
     wifiManager: networkItem.wifiManager

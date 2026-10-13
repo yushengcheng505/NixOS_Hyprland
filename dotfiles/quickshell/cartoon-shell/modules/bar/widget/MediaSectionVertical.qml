@@ -65,15 +65,15 @@ Item {
 
                             SequentialAnimation on y {
                                 id: artistMarqueeAnimation
-                                running: artistTextVertical.needsMarquee
+                                running: songTextVertical.needsMarquee
                                 loops: Animation.Infinite
 
                                 PauseAnimation {
                                     duration: 2000
                                 }
                                 NumberAnimation {
-                                    to: -(artistTextVertical.contentHeight - parent.height)
-                                    duration: Math.max(2000, (artistTextVertical.contentHeight - parent.height) * 20)
+                                    to: -(songTextVertical.contentHeight - parent.height)
+                                    duration: Math.max(2000, (songTextVertical.contentHeight - parent.height) * 20)
                                     easing.type: Easing.Linear
                                 }
                                 PauseAnimation {
@@ -81,7 +81,7 @@ Item {
                                 }
                                 NumberAnimation {
                                     to: 0
-                                    duration: Math.max(2000, (artistTextVertical.contentHeight - parent.height) * 20)
+                                    duration: Math.max(2000, (songTextVertical.contentHeight - parent.height) * 20)
                                     easing.type: Easing.Linear
                                 }
                             }

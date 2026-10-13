@@ -65,7 +65,7 @@
     "logout": "Disconnetti",
     "shutdown": "Spegni",
     "restart": "Riavvia",
-    "lock": "Blocca schermo"
+    "lock": "Spegni schermo"
   },
   "mixer": {
     "title": "Mixer audio",
@@ -122,7 +122,7 @@
     "yes": "Sì",
     "no": "No",
     "sleep": "attivare la modalità sleep",
-    "lock": "bloccare lo schermo",
+    "lock": "spegnere lo schermo",
     "logout": "disconnetterti",
     "restart": "riavviare",
     "shutdown": "spegnere"

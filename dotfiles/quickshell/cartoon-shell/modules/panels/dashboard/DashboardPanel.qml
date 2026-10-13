@@ -179,6 +179,11 @@ PanelWindow {
 
                             Com.PackageCard {
                                 count: packageService.totalPackage
+                                loading: packageService.loading
+                                available: packageService.available
+                                partial: packageService.partial
+                                error: packageService.error
+                                warnings: packageService.warnings
                                 animationProgress: root.animationProgress
                             }
                         }

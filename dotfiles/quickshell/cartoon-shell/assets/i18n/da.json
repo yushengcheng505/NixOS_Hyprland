@@ -65,7 +65,7 @@
     "logout": "Log ud",
     "shutdown": "Luk ned",
     "restart": "Genstart",
-    "lock": "Lås skærm"
+    "lock": "Sluk skærm"
   },
   "mixer": {
     "title": "Lydmixer",
@@ -118,7 +118,7 @@
     "yes": "Ja",
     "no": "Nej",
     "sleep": "gå i dvale",
-    "lock": "låse skærmen",
+    "lock": "slukke skærmen",
     "logout": "logge ud",
     "restart": "genstarte",
     "shutdown": "lukke ned"
