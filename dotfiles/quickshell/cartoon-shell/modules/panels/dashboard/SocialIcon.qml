@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Fusion
 import Quickshell
-import Quickshell.Io
 import qs.services
 import qs.commons
 import qs.components
@@ -19,8 +18,6 @@ Item {
 
   Layout.fillHeight: true
   Layout.preferredWidth: height
-
-  Process { id: linkProcess }
 
   // Hiệu ứng chuyển đổi mượt mà
 
@@ -70,11 +67,7 @@ Item {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
 
-      onClicked: {
-        linkProcess.command = ["xdg-open", linkSocial]
-        linkProcess.startDetached()
-        // Bạn có thể thêm hành động khi click ở đây
-      }
+      onClicked: ApplicationLauncher.openUrl(root.linkSocial)
     }
   }
 

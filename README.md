@@ -66,6 +66,8 @@ Select **Hyprland** in SDDM. This configuration does not use UWSM. The session l
 
 On compositor readiness, `hyprland-session-ready` stops stale session services, imports the display/session environment into the user manager and D-Bus activation environment, resets only failed session services, then starts the target. Its dependency starts `graphical-session.target`; neither target needs to be active before readiness runs. Quickshell, hypridle, EasyCLIProxyAPI and the standard portal services are attached to that target. The headless Throne PAC server remains independent of the graphical session. Readiness diagnostics are recorded in `journalctl -b -t hyprland-session-ready`.
 
+Applications started from the launcher and links opened from the dashboard use `app2unit -t service -C`, so they run in separate user services and survive a Quickshell restart. They still stop with the graphical session. Applications started before this change may remain in Quickshell's cgroup: do not restart the shell while they contain unsaved work. Shell helper processes intentionally remain attached to `quickshell.service`.
+
 For changes to session management, prefer `sudo nixos-rebuild boot --flake path:/home/klenko/nixos#nixos`, then save your work and reboot. This avoids replacing portal and GUI services in the running session. Later, also test logout and login without rebooting. Do not manually run the readiness helper from a terminal outside the intended compositor environment. Check `systemctl --user --failed`, `qs list --all`, and actual Discord screen sharing after the new login. A successful build alone does not verify logout/login cleanup or screen capture.
 
 ## What is included

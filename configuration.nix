@@ -537,6 +537,8 @@ in
         "QML_IMPORT_PATH=/run/current-system/sw/lib/qt-6/qml"
         "QT_QPA_PLATFORM=wayland"
         "QT_QPA_PLATFORMTHEME=gtk3"
+        "QT_FFMPEG_DECODING_HW_DEVICE_TYPES=vaapi"
+        "QT_FFMPEG_ENCODING_HW_DEVICE_TYPES=vaapi"
       ];
       ExecStart = "${pkgs.quickshell}/bin/quickshell -n -p %h/.config/quickshell/cartoon-shell";
       Restart = "on-failure";

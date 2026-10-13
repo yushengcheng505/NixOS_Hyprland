@@ -305,7 +305,7 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (modelData && modelData.entry) {
-                            modelData.entry.execute();
+                            ApplicationLauncher.launchDesktopEntry(modelData.entry);
                             VisibleService.closeAllPanels();
                         }
                     }
@@ -317,12 +317,12 @@ Rectangle {
                     }
                 }
             }
-        }
 
-        CustomText {
-            visible: container.apps.length === 0
-            name: LanguageService.t("launcher", "no_results")
-            anchors.centerIn: parent
+            CustomText {
+                visible: container.apps.length === 0
+                name: LanguageService.t("launcher", "no_results")
+                anchors.centerIn: parent
+            }
         }
     }
 
@@ -362,7 +362,7 @@ Rectangle {
             if (container.apps.length > 0 && container.currentIndex < container.apps.length) {
                 var item = container.apps[container.currentIndex];
                 if (item && item.entry) {
-                    item.entry.execute();
+                    ApplicationLauncher.launchDesktopEntry(item.entry);
                     VisibleService.closeAllPanels();
                 }
             }
