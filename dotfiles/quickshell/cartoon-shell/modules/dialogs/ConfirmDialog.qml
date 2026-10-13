@@ -37,9 +37,6 @@ PanelWindow {
     id: lockProcess
   }
   Process {
-    id: logoutProcess
-  }
-  Process {
     id: restartProcess
   }
   Process {
@@ -77,8 +74,7 @@ PanelWindow {
       lockProcess.startDetached();
       break;
       case "logout":
-      logoutProcess.command = ["hyprctl", "dispatch", "exit"];
-      logoutProcess.startDetached();
+      CompositorService.logout();
       break;
       case "restart":
       restartProcess.command = ["systemctl", "reboot"];

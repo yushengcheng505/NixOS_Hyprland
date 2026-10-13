@@ -376,7 +376,7 @@ Item {
 
     function logout() {
         try {
-            Quickshell.execDetached(["hyprctl", "dispatch", "exit"]);
+            Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exit()"]);
         } catch (e) {}
     }
 }
