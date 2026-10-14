@@ -35,6 +35,48 @@ PanelWindow {
     }
   }
 
+  function notifLive(notification) {
+    if (!notification)
+      return false;
+    try {
+      return !notification.Retainable.retained;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function safeDismiss(notification) {
+    if (notifLive(notification)) {
+      try {
+        notification.dismiss();
+      } catch (e) {}
+    }
+  }
+
+  function rowIndexOf(notificationId) {
+    for (var i = 0; i < notificationModel.count; i++) {
+      if (notificationModel.get(i).notificationId === notificationId)
+        return i;
+    }
+    return -1;
+  }
+
+  function closeRow(notificationId) {
+    root.setRowClosing(notificationId, true);
+  }
+
+  function setRowClosing(notificationId, value) {
+    var i = rowIndexOf(notificationId);
+    if (i >= 0)
+      notificationModel.setProperty(i, "closing", value);
+  }
+
+  function removeRow(notificationId) {
+    var i = rowIndexOf(notificationId);
+    if (i >= 0)
+      notificationModel.remove(i);
+  }
+
   // Container chính cho popup
   Rectangle {
     anchors.fill: parent
@@ -72,8 +114,26 @@ PanelWindow {
         border.width: Settings.appearance.enableBorder ? ScalerService.s(3) : 0
         color: theme.primary.background
 
+        property var notification: notificationRef || null
+        property string appName: notification ? notification.appName : ""
+        property string summary: notification ? notification.summary : ""
+        property string body: notification ? notification.body : ""
+        property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
+        property var actions: notification ? notification.actions : []
+        property real expireTimeout: notification ? notification.expireTimeout : -1
         property bool isExpanded: false
         property bool hasLongContent: false
+        readonly property bool isClosing: model.closing
+
+        onIsClosingChanged: {
+          if (isClosing)
+            removalTimer.restart();
+        }
+
+        Component.onCompleted: {
+          if (isClosing)
+            removalTimer.restart();
+        }
 
         Behavior on height {
           NumberAnimation {
@@ -83,7 +143,7 @@ PanelWindow {
         }
 
         // Hiệu ứng mờ dần khi xóa
-        opacity: 1
+        opacity: model.closing ? 0 : 1
         Behavior on opacity {
           NumberAnimation {
             duration: 200
@@ -93,8 +153,36 @@ PanelWindow {
         // Timer tự động xóa
         Timer {
           id: autoDismiss
-          interval: model.timeout > 0 ? model.timeout * 1000 : 10000
-          onTriggered: removeNotification()
+          interval: notificationDelegate.expireTimeout > 0 ? notificationDelegate.expireTimeout : 10000
+          running: notificationDelegate.expireTimeout !== 0
+          onTriggered: {
+            if (!notificationDelegate.isClosing)
+              notificationDelegate.removeNotification();
+          }
+        }
+
+        Connections {
+          target: notificationDelegate.notification
+          ignoreUnknownSignals: true
+
+          function onSummaryChanged() {
+            notificationDelegate.resetForUpdate();
+          }
+          function onBodyChanged() {
+            notificationDelegate.resetForUpdate();
+          }
+          function onAppNameChanged() {
+            notificationDelegate.resetForUpdate();
+          }
+          function onUrgencyChanged() {
+            notificationDelegate.resetForUpdate();
+          }
+          function onActionsChanged() {
+            notificationDelegate.resetForUpdate();
+          }
+          function onExpireTimeoutChanged() {
+            notificationDelegate.resetForUpdate();
+          }
         }
 
         Column {
@@ -114,7 +202,7 @@ PanelWindow {
               height: ScalerService.s(24)
               radius: ScalerService.s(12)
               color: {
-                switch (model.urgency) {
+                switch (notificationDelegate.urgency) {
                   case NotificationUrgency.Critical:
                   return theme.normal.red;
                   case NotificationUrgency.Normal:
@@ -128,7 +216,7 @@ PanelWindow {
 
               Text {
                 anchors.centerIn: parent
-                text: model.appName ? model.appName.charAt(0).toUpperCase() : "N"
+                text: notificationDelegate.appName ? notificationDelegate.appName.charAt(0).toUpperCase() : "N"
                 font.bold: true
                 color: theme.primary.background
                 font.pixelSize: ScalerService.s(12)
@@ -136,7 +224,7 @@ PanelWindow {
             }
 
             Text {
-              text: model.appName || "Unknown App"
+              text: notificationDelegate.appName || "Unknown App"
               font.bold: true
               color: theme.button.text
               elide: Text.ElideRight
@@ -176,7 +264,7 @@ PanelWindow {
               anchors.verticalCenter: parent.verticalCenter
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: removeNotification()
+              onClicked: dismissNotification()
 
               Rectangle {
                 anchors.fill: parent
@@ -198,7 +286,7 @@ PanelWindow {
           Text {
             id: summaryText
             width: parent.width
-            text: model.summary
+            text: notificationDelegate.summary
             font.bold: true
             font.pixelSize: ScalerService.s(14)
             wrapMode: Text.WordWrap
@@ -211,7 +299,7 @@ PanelWindow {
           Text {
             id: bodyText
             width: parent.width
-            text: model.body
+            text: notificationDelegate.body
             font.pixelSize: ScalerService.s(12)
             wrapMode: Text.WordWrap
             color: theme.primary.foreground
@@ -237,17 +325,17 @@ PanelWindow {
           Flow {
             width: parent.width
             spacing: ScalerService.s(5)
-            visible: model.actions && model.actions.length > 0
+            visible: notificationDelegate.actions.length > 0
 
             Repeater {
-              model: model.actions || []
+              model: notificationDelegate.actions
 
               Rectangle {
                 height: ScalerService.s(26)
                 width: Math.min(actionText.width + ScalerService.s(16), ScalerService.s(120))
                 radius: ScalerService.s(5)
                 color: {
-                  switch (parent.parent.parent.model.urgency) {
+                  switch (notificationDelegate.urgency) {
                     case NotificationUrgency.Critical:
                     return theme.normal.red;
                     case NotificationUrgency.Normal:
@@ -273,8 +361,9 @@ PanelWindow {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
-                    modelData.invoke();
-                    removeNotification();
+                    try {
+                      modelData.invoke();
+                    } catch (e) {}
                   }
                 }
               }
@@ -282,19 +371,42 @@ PanelWindow {
           }
         }
 
+        function resetForUpdate() {
+          removalTimer.stop();
+          root.setRowClosing(model.notificationId, false);
+          autoDismiss.stop();
+          if (expireTimeout !== 0)
+            autoDismiss.restart();
+        }
+
         function removeNotification() {
-          notificationDelegate.opacity = 0;
-          notificationTimer.start();
+          if (root.notifLive(notification)) {
+            try {
+              notification.expire();
+              return;
+            } catch (e) {}
+          }
+          root.closeRow(model.notificationId);
+        }
+
+        function dismissNotification() {
+          if (root.notifLive(notification)) {
+            try {
+              notification.dismiss();
+              return;
+            } catch (e) {}
+          }
+          root.closeRow(model.notificationId);
         }
 
         Timer {
-          id: notificationTimer
+          id: removalTimer
           interval: 200
-          onTriggered: notificationModel.remove(index)
-        }
-
-        Component.onCompleted: {
-          autoDismiss.restart();
+          onTriggered: {
+            var ref = notificationDelegate.notification;
+            root.removeRow(model.notificationId);
+            root.safeDismiss(ref);
+          }
         }
       }
     }
@@ -307,24 +419,30 @@ PanelWindow {
     inlineReplySupported: true
 
     onNotification: function (notification) {
-      notificationModel.insert(0, {
-          id: notification.id,
-          appName: notification.appName || "",
-          summary: notification.summary,
-          body: notification.body,
-          urgency: notification.urgency,
-          timeout: notification.expireTimeout,
-          actions: notification.actions
+      notification.tracked = true;
+
+      var nid = notification.id;
+      notification.closed.connect(function (reason) {
+        root.closeRow(nid);
       });
 
-      // Giữ tối đa 4 notification
-      if (notificationModel.count > maxNotifications) {
-        // Xóa notification cũ nhất
-        notificationModel.remove(maxNotifications);
+      var existing = root.rowIndexOf(notification.id);
+      if (existing >= 0) {
+        notificationModel.setProperty(existing, "notificationRef", notification);
+      } else {
+        notificationModel.insert(0, {
+            notificationId: notification.id,
+            notificationRef: notification,
+            closing: false
+        });
       }
 
-      // Giữ thông báo
-      notification.tracked = true;
+      // Giữ tối đa 4 notification
+      while (notificationModel.count > maxNotifications) {
+        var victimRef = notificationModel.get(notificationModel.count - 1).notificationRef;
+        notificationModel.remove(notificationModel.count - 1);
+        root.safeDismiss(victimRef);
+      }
     }
   }
 }
