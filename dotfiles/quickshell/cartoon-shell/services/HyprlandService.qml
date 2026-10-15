@@ -24,12 +24,15 @@ Item {
     property var workspaceCache: ({})
     property var windowCache: ({})
 
-    // Debounce timer for updates
+    property bool windowsDirty: false
+    property bool workspacesDirty: false
+    property bool scalesDirty: false
+
     Timer {
         id: updateTimer
         interval: 50
         repeat: false
-        onTriggered: root.safeUpdate()
+        onTriggered: root.flushUpdates()
     }
 
     // Initialization
@@ -37,7 +40,6 @@ Item {
         if (initialized)
             return;
         try {
-            Hyprland.refreshWorkspaces();
             Hyprland.refreshToplevels();
             Qt.callLater(() => {
                 safeUpdateWorkspaces();
@@ -48,12 +50,49 @@ Item {
         } catch (e) {}
     }
 
+    function markWindowsDirty() {
+        if (!windowsDirty) {
+            windowsDirty = true;
+            updateTimer.restart();
+        }
+    }
+
+    function markWorkspacesDirty() {
+        if (!workspacesDirty) {
+            workspacesDirty = true;
+            updateTimer.restart();
+        }
+    }
+
+    function markScalesDirty() {
+        if (!scalesDirty) {
+            scalesDirty = true;
+            updateTimer.restart();
+        }
+    }
+
+    function flushUpdates() {
+        if (windowsDirty) {
+            windowsDirty = false;
+            safeUpdateWindows();
+            windowListChanged();
+        }
+        if (workspacesDirty) {
+            workspacesDirty = false;
+            safeUpdateWorkspaces();
+            workspaceChanged();
+        }
+        if (scalesDirty) {
+            scalesDirty = false;
+            queryDisplayScales();
+        }
+    }
+
     // Query display scales
     function queryDisplayScales() {
         hyprlandMonitorsProcess.running = true;
     }
 
-    // Hyprland monitors process for display scale detection
     // Hyprland monitors process for display scale detection
     Process {
         id: hyprlandMonitorsProcess
@@ -106,12 +145,6 @@ Item {
             }
         }
     }
-    // Safe update wrapper
-    function safeUpdate() {
-        safeUpdateWindows();
-        safeUpdateWorkspaces();
-        windowListChanged();
-    }
 
     // Safe workspace update
     function safeUpdateWorkspaces() {
@@ -120,11 +153,13 @@ Item {
             workspaceCache = {};
 
             if (!Hyprland.workspaces || !Hyprland.workspaces.values) {
+                root.focusedWorkspaceId = -1;
                 return;
             }
 
             const hlWorkspaces = Hyprland.workspaces.values;
             const occupiedIds = getOccupiedWorkspaceIds();
+            let newFocusedId = -1;
 
             for (var i = 0; i < hlWorkspaces.length; i++) {
                 const ws = hlWorkspaces[i];
@@ -145,9 +180,10 @@ Item {
                 workspaces.append(wsData);
 
                 if (wsData.isFocused) {
-                    root.focusedWorkspaceId = wsData.id;
+                    newFocusedId = wsData.id;
                 }
             }
+            root.focusedWorkspaceId = newFocusedId;
         } catch (e) {}
     }
 
@@ -327,6 +363,7 @@ Item {
                 VisibleService.closeAllPanels();
             }
             root.safeUpdateWorkspaces();
+            root.workspacesDirty = false;
             root.workspaceChanged();
         }
     }
@@ -335,22 +372,142 @@ Item {
         target: Hyprland.toplevels
         enabled: root.initialized
         function onValuesChanged() {
-            updateTimer.restart();
+            root.markWindowsDirty();
+            root.markWorkspacesDirty();
+        }
+    }
+
+    Connections {
+        target: Hyprland.monitors
+        enabled: root.initialized
+        function onValuesChanged() {
+            root.markWindowsDirty();
+            root.markWorkspacesDirty();
+            root.markScalesDirty();
         }
     }
 
     Connections {
         target: Hyprland
         enabled: root.initialized
-        function onRawEvent(event) {
-            Hyprland.refreshWorkspaces();
-            root.safeUpdateWorkspaces();
-            root.workspaceChanged();
-            updateTimer.restart();
 
-            const monitorsEvents = ["configreloaded", "monitoradded", "monitorremoved", "monitoraddedv2", "monitorremovedv2"];
-            if (monitorsEvents.includes(event.name)) {
-                Qt.callLater(root.queryDisplayScales);
+        function onFocusedWorkspaceChanged() {
+            root.markWorkspacesDirty();
+        }
+        function onFocusedMonitorChanged() {
+            root.markWindowsDirty();
+            root.markWorkspacesDirty();
+        }
+        function onActiveToplevelChanged() {
+            root.markWindowsDirty();
+        }
+
+        function onRawEvent(event) {
+            const name = event ? event.name : "";
+            const windowOnly = ["windowtitle", "windowtitlev2"];
+            const workspaceOnly = ["workspace", "workspacev2", "renameworkspace", "createworkspace", "createworkspacev2", "destroyworkspace", "destroyworkspacev2", "urgent", "focusedmon", "activespecial", "activespecialv2"];
+            const windowAndWorkspace = ["activewindow", "activewindowv2", "moveworkspace", "moveworkspacev2", "openwindow", "closewindow", "movewindow", "movewindowv2", "fullscreen"];
+            const monitors = ["monitoradded", "monitorremoved", "monitoraddedv2", "monitorremovedv2", "configreloaded"];
+
+            if (windowOnly.includes(name)) {
+                root.markWindowsDirty();
+            } else if (workspaceOnly.includes(name)) {
+                root.markWorkspacesDirty();
+            } else if (windowAndWorkspace.includes(name)) {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+            } else if (monitors.includes(name)) {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+                root.markScalesDirty();
+            }
+        }
+    }
+
+    Instantiator {
+        model: Hyprland.workspaces ? Hyprland.workspaces.values : []
+        active: root.initialized
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+
+            function onNameChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onActiveChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onFocusedChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onUrgentChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onHasFullscreenChanged() {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+            }
+            function onMonitorChanged() {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+            }
+        }
+    }
+
+    Instantiator {
+        model: Hyprland.toplevels ? Hyprland.toplevels.values : []
+        active: root.initialized
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+
+            function onTitleChanged() {
+                root.markWindowsDirty();
+            }
+            function onActivatedChanged() {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+            }
+            function onUrgentChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onWorkspaceChanged() {
+                root.markWindowsDirty();
+                root.markWorkspacesDirty();
+            }
+            function onMonitorChanged() {
+                root.markWindowsDirty();
+            }
+        }
+    }
+
+    Instantiator {
+        model: Hyprland.monitors ? Hyprland.monitors.values : []
+        active: root.initialized
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+
+            function onScaleChanged() {
+                root.markScalesDirty();
+            }
+            function onXChanged() {
+                root.markScalesDirty();
+            }
+            function onYChanged() {
+                root.markScalesDirty();
+            }
+            function onWidthChanged() {
+                root.markScalesDirty();
+            }
+            function onHeightChanged() {
+                root.markScalesDirty();
+            }
+            function onActiveWorkspaceChanged() {
+                root.markWorkspacesDirty();
+            }
+            function onFocusedChanged() {
+                root.markWorkspacesDirty();
             }
         }
     }

@@ -56,13 +56,18 @@ let
   '';
 
   bluetoothConnectable = pkgs.writeShellScript "bluetooth-connectable" ''
-    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
-      if ${pkgs.systemd}/bin/busctl set-property \
-        org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable b true; then
+    deadline=$((SECONDS + 30))
+    while (( SECONDS < deadline )); do
+      if ${pkgs.systemd}/bin/busctl --timeout=1s get-property \
+        org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable >/dev/null 2>&1 &&
+        ${pkgs.systemd}/bin/busctl --timeout=1s set-property \
+          org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable b true >/dev/null 2>&1; then
+        printf '%s\n' 'bluetooth-connectable: adapter is connectable'
         exit 0
       fi
-      ${pkgs.coreutils}/bin/sleep 0.25
+      ${pkgs.coreutils}/bin/sleep 0.5
     done
+    printf '%s\n' 'bluetooth-connectable: adapter setup timed out; leaving bluetoothd running' >&2
     exit 1
   '';
 
@@ -368,7 +373,7 @@ in
   # is powered and pairable. Set the Adapter1 property through D-Bus after the
   # daemon has registered its controller.
   systemd.services.bluetooth.serviceConfig.ExecStartPost =
-    bluetoothConnectable;
+    "-${bluetoothConnectable}";
 
   networking.firewall.allowedTCPPorts = [ 22 ];
 
@@ -486,7 +491,7 @@ in
         "org.freedesktop.login1.hibernate",
         "org.freedesktop.login1.hibernate-multiple-sessions"
       ];
-      if (subject.user == "klenko" && powerActions.indexOf(action.id) >= 0) {
+      if (subject.user == "klenko" && subject.local && subject.active && powerActions.indexOf(action.id) >= 0) {
         return polkit.Result.YES;
       }
     });
@@ -501,6 +506,7 @@ in
   systemd.user.services.throne-pac = {
     unitConfig = {
       Description = "Serve the Throne PAC file for Chromium browsers";
+      ConditionUser = "klenko";
     };
     serviceConfig = {
       ExecStart = "${pkgs.darkhttpd}/bin/darkhttpd ${thronePacDir} --addr 127.0.0.1 --port 18765 --no-listing";

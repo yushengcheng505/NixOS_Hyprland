@@ -29,7 +29,7 @@ Singleton {
 
     Timer {
         id: diskTimer
-        interval: 2000
+        interval: 60000
         repeat: true
         running: true
         triggeredOnStart: true
