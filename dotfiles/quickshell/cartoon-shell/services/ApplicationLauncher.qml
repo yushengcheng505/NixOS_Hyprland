@@ -28,11 +28,11 @@ Singleton {
         });
     }
 
-    function launchDesktopEntry(entry) {
-        if (!entry || !entry.id)
+    function launchDesktopEntry(desktopId) {
+        if (!desktopId || typeof desktopId !== "string")
             return;
 
-        launch(["--", entry.id + ".desktop"]);
+        launch(["--", desktopId + ".desktop"]);
     }
 
     function openUrl(url) {

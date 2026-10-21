@@ -16,6 +16,18 @@ Item {
   property int currentLocationIndex: 0
   property bool isUserSearching: false
   property string errorMessage: ""
+  property bool searchQueued: false
+  property int searchAttempt: 0
+  property string searchUrl: ""
+  property string searchOutput: ""
+
+  onLocationChanged: cancelSearch()
+  onShowSettingsChanged: {
+    if (!showSettings) {
+      searchDebounceTimer.stop();
+      cancelSearch();
+    }
+  }
 
   // Timer auto-validate API key
   property Timer apiKeyValidateTimer: Timer {
@@ -45,31 +57,63 @@ Item {
     interval: 200
     repeat: false
     onTriggered: {
-      settingsRoot.locationSearchResults = [];
+      settingsRoot.searchDebounceTimer.stop();
+      settingsRoot.cancelSearch();
       settingsRoot.isUserSearching = false;
     }
   }
 
-  // Process tìm kiếm địa điểm
   Process {
     id: searchLocationProcess
+    property string requestConfig: ""
     running: false
-    stdout: StdioCollector {
-      onStreamFinished: {
+    stdinEnabled: true
+    onStarted: WeatherService.writeRequest(searchLocationProcess)
+    onRunningChanged: {
+      if (!running && settingsRoot.isSearchingLocation && stdinEnabled) {
         settingsRoot.isSearchingLocation = false;
-        settingsRoot.locationSearchResults = [];
-        if (text && text.length > 0) {
-          try {
-            const data = JSON.parse(text);
-            if (!data.error) {
-              settingsRoot.locationSearchResults = data;
-              if (data.length > 0) {
-                settingsRoot.currentLocationIndex = 0;
-              }
-            }
-          } catch (e) {}
-        }
+        settingsRoot.searchQueued = false;
       }
+    }
+    onExited: (exitCode, exitStatus) => {
+      if (settingsRoot.searchQueued) {
+        settingsRoot.searchQueued = false;
+        settingsRoot.startSearch();
+        return;
+      }
+      if (!settingsRoot.isSearchingLocation)
+        return;
+      if ((exitCode !== 0 || exitStatus !== 0) && settingsRoot.searchAttempt === 0) {
+        settingsRoot.searchAttempt = 1;
+        settingsRoot.searchOutput = "";
+        WeatherService.sendRequest(searchLocationProcess, settingsRoot.searchUrl, false);
+        return;
+      }
+      settingsRoot.isSearchingLocation = false;
+      if (exitCode !== 0 || exitStatus !== 0)
+        return;
+      try {
+        const data = JSON.parse(settingsRoot.searchOutput);
+        if (Array.isArray(data)) {
+          settingsRoot.locationSearchResults = data;
+          settingsRoot.currentLocationIndex = 0;
+        }
+      } catch (e) {}
+    }
+    stdout: StdioCollector {
+      onStreamFinished: settingsRoot.searchOutput = String(text || "")
+    }
+    stderr: StdioCollector {}
+  }
+
+  Connections {
+    target: WeatherService
+    function onApiKeySaveErrorChanged() {
+      settingsRoot.errorMessage = WeatherService.apiKeySaveError;
+    }
+    function onApiKeyChanged() {
+      settingsRoot.cancelSearch();
+      settingsRoot.apiKey = WeatherService.apiKey;
     }
   }
 
@@ -81,25 +125,47 @@ Item {
     if (WeatherService.setApiKey(key)) {
       settingsRoot.apiKey = WeatherService.apiKey;
       errorMessage = "";
+    } else {
+      errorMessage = WeatherService.apiKeySaveError;
     }
+  }
+
+  function cancelSearch() {
+    searchQueued = false;
+    isSearchingLocation = false;
+    locationSearchResults = [];
+    if (searchLocationProcess.running)
+      searchLocationProcess.signal(9);
+  }
+
+  function startSearch() {
+    if (searchUrl === "")
+      return;
+    isSearchingLocation = true;
+    searchAttempt = 0;
+    searchOutput = "";
+    WeatherService.sendRequest(searchLocationProcess, searchUrl, true);
   }
 
   function searchLocation(query) {
-    if (query === "" || apiKey === "") {
-      locationSearchResults = [];
-      isSearchingLocation = false;
+    if (query.length < 2 || WeatherService.apiKey === "") {
+      cancelSearch();
       return;
     }
-    try {
-      searchLocationProcess.running = false;
-    } catch (e) {}
-    isSearchingLocation = true;
-    const url = `https://api.weatherapi.com/v1/search.json?key=${WeatherService.apiKey}&q=${encodeURIComponent(query)}`;
-    searchLocationProcess.command = ["curl", "-s", url];
-    searchLocationProcess.running = true;
+    searchUrl = "https://api.weatherapi.com/v1/search.json?key=" + encodeURIComponent(WeatherService.apiKey)
+      + "&q=" + encodeURIComponent(query);
+    locationSearchResults = [];
+    if (searchLocationProcess.running) {
+      searchQueued = true;
+      searchLocationProcess.signal(9);
+      return;
+    }
+    startSearch();
   }
 
   function selectLocation(locationName) {
+    searchDebounceTimer.stop();
+    cancelSearch();
     if (!Settings.weather) Settings.weather = {}
     Settings.weather.location = locationName;
     location = locationName;
@@ -180,6 +246,15 @@ Item {
               settingsRoot.apiKeyValidateTimer.restart();
             }
           }
+        }
+
+        CustomText {
+          name: settingsRoot.errorMessage || WeatherService.apiKeySaveError
+          visible: name !== ""
+          size: "xsmall"
+          wrapMode: Text.WordWrap
+          Layout.fillWidth: true
+          textColor: theme.normal.red
         }
 
         CustomText {

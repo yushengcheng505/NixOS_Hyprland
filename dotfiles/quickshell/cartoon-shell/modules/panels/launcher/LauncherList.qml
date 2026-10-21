@@ -51,32 +51,30 @@ Rectangle {
 
     signal appLaunched
 
-    Repeater {
-        id: appRepeater
-        model: DesktopEntries.applications
+    function rebuildApps() {
+        container.allApps = DesktopEntries.applications.values.map(function (entry) {
+            return {
+                name: entry.name || "",
+                comment: entry.comment || "",
+                icon: entry.icon || "",
+                exec: entry.execString || "",
+                category: container.getAppCategory(entry),
+                desktopId: entry.id
+            };
+        }).sort(function (a, b) {
+            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        });
+        container.filterApps();
+    }
 
-        Item {
-            Component.onCompleted: {
-                container.allApps.push({
-                    name: modelData.name || "",
-                    comment: modelData.comment || "",
-                    icon: modelData.icon || "",
-                    exec: modelData.execString || "",
-                    category: container.getAppCategory(modelData),
-                    entry: modelData
-                });
-            }
+    Connections {
+        target: DesktopEntries.applications
+        function onValuesChanged() {
+            Qt.callLater(container.rebuildApps);
         }
     }
 
-    Component.onCompleted: {
-        Qt.callLater(function () {
-            container.allApps.sort(function (a, b) {
-                return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-            });
-            container.filterApps();
-        });
-    }
+    Component.onCompleted: rebuildApps()
 
     // Hàm lọc ứng dụng kết hợp cả Tìm kiếm và Danh mục
     function filterApps() {
@@ -304,8 +302,8 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        if (modelData && modelData.entry) {
-                            ApplicationLauncher.launchDesktopEntry(modelData.entry);
+                        if (modelData && modelData.desktopId) {
+                            ApplicationLauncher.launchDesktopEntry(modelData.desktopId);
                             VisibleService.closeAllPanels();
                         }
                     }
@@ -361,8 +359,8 @@ Rectangle {
         onActivated: {
             if (container.apps.length > 0 && container.currentIndex < container.apps.length) {
                 var item = container.apps[container.currentIndex];
-                if (item && item.entry) {
-                    ApplicationLauncher.launchDesktopEntry(item.entry);
+                if (item && item.desktopId) {
+                    ApplicationLauncher.launchDesktopEntry(item.desktopId);
                     VisibleService.closeAllPanels();
                 }
             }

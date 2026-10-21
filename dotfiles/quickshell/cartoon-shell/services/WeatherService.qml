@@ -24,7 +24,9 @@ Singleton {
     "is_day": 1
   })
 
-  property string apiKey: Quickshell.env("WEATHER_API_KEY") || Settings.weather.keyApi || ""
+  readonly property string environmentApiKey: Quickshell.env("WEATHER_API_KEY") || ""
+  property string fileApiKey: ""
+  readonly property string apiKey: root.environmentApiKey || root.fileApiKey || Settings.weather.keyApi || ""
   property string location: Settings.weather.location || "Moscow,Russia"
   property string lang: LanguageService.normalizeLanguage(Settings.general.lang)
   property string errorMessage: ""
@@ -36,62 +38,161 @@ Singleton {
     "forecast": { "forecastday": [] }
   })
 
+  property bool initialized: false
+  property bool requestQueued: false
+  property int requestAttempt: 0
+  property string requestUrl: ""
+  property string requestOutput: ""
+  property string pendingApiKey: ""
+
+  onApiKeyChanged: if (root.initialized) root.updateWeather()
+  onLocationChanged: if (root.initialized) root.updateWeather()
+  onLangChanged: if (root.initialized) root.updateWeather()
+
   function setError(code, message) {
     root.errorCode = Number(code || 0)
     root.errorMessage = String(message || LanguageService.t("weather", "unavailable"))
     root.loading = false
   }
 
-  Process {
-    id: weatherProcess
-    running: false
+  function curlConfig(url) {
+    const escaped = String(url).replace(/[\u0000-\u001f\u007f]/g, ch => encodeURIComponent(ch))
+      .replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    return 'url = "' + escaped + '"\n'
+  }
 
-    stdout: StdioCollector {
-      onStreamFinished: {
-        const payload = String(text || "").trim()
-        if (!payload) {
-          root.setError(0, LanguageService.t("weather", "networkError"))
-          return
-        }
-        try {
-          const parsed = JSON.parse(payload)
-          if (parsed.error) {
-            root.setError(parsed.error.code, parsed.error.message)
-            return
-          }
-          if (!parsed.current) {
-            root.setError(0, LanguageService.t("weather", "invalidResponse"))
-            return
-          }
-          if (!parsed.forecast)
-            parsed.forecast = { "forecastday": [] }
-          if (!Array.isArray(parsed.forecast.forecastday))
-            parsed.forecast.forecastday = []
-          root.dataModel = parsed
-          root.errorCode = 0
-          root.errorMessage = ""
-          root.lastUpdated = new Date().toISOString()
-          root.loading = false
-        } catch (e) {
-          root.setError(0, LanguageService.t("weather", "invalidResponse"))
-          console.warn("Weather API response parse error:", e)
-        }
+  function curlCommand(useProxy) {
+    return ["curl", "--disable", "--silent", "--show-error", "--connect-timeout", "5", "--max-time", "15",
+      "--proxy", useProxy ? "http://127.0.0.1:2080" : "", "--noproxy", useProxy ? "" : "*", "--config", "-"]
+  }
+
+  function sendRequest(process, url, useProxy) {
+    process.requestConfig = root.curlConfig(url)
+    process.command = root.curlCommand(useProxy)
+    process.stdinEnabled = true
+    process.running = true
+  }
+
+  function writeRequest(process) {
+    process.write(process.requestConfig)
+    process.requestConfig = ""
+    process.stdinEnabled = false
+  }
+
+  function isRetryableApiError(code) {
+    return Number(code) === 9999
+  }
+
+  function scheduleRetry(code, message) {
+    root.errorCode = Number(code || 0)
+    root.errorMessage = String(message || LanguageService.t("weather", "networkError"))
+    root.loading = false
+    retryTimer.restart()
+  }
+
+  function handleWeatherPayload(exitCode) {
+    if (exitCode !== 0) {
+      if (root.requestAttempt === 0) {
+        root.requestAttempt = 1
+        root.requestOutput = ""
+        root.sendRequest(weatherProcess, root.requestUrl, false)
+      } else {
+        root.scheduleRetry(0, LanguageService.t("weather", "networkError"))
       }
+      return
     }
-
-    stderr: StdioCollector {
-      onStreamFinished: {
-        const message = String(text || "").trim()
-        if (message && !root.errorMessage)
-          root.setError(0, message)
+    try {
+      const parsed = JSON.parse(root.requestOutput)
+      if (parsed && parsed.error) {
+        if (root.isRetryableApiError(parsed.error.code))
+          root.scheduleRetry(parsed.error.code, parsed.error.message)
+        else
+          root.setError(parsed.error.code, parsed.error.message)
+        return
       }
+      if (!parsed || !parsed.current || typeof parsed.current !== "object" || Array.isArray(parsed.current)) {
+        root.scheduleRetry(0, LanguageService.t("weather", "invalidResponse"))
+        return
+      }
+      if (!parsed.forecast || typeof parsed.forecast !== "object" || Array.isArray(parsed.forecast))
+        parsed.forecast = { "forecastday": [] }
+      if (!Array.isArray(parsed.forecast.forecastday))
+        parsed.forecast.forecastday = []
+      root.dataModel = parsed
+      root.errorCode = 0
+      root.errorMessage = ""
+      root.lastUpdated = new Date().toISOString()
+      root.loading = false
+    } catch (e) {
+      root.scheduleRetry(0, LanguageService.t("weather", "invalidResponse"))
     }
   }
 
   Process {
+    id: weatherProcess
+    property string requestConfig: ""
+    running: false
+    stdinEnabled: true
+    onStarted: root.writeRequest(weatherProcess)
+    onRunningChanged: {
+      if (!running && root.loading && stdinEnabled) {
+        root.requestQueued = false
+        root.scheduleRetry(0, LanguageService.t("weather", "networkError"))
+      }
+    }
+
+    onExited: (exitCode, exitStatus) => {
+      if (root.requestQueued) {
+        root.requestQueued = false
+        root.loading = false
+        root.updateWeather()
+      } else {
+        root.handleWeatherPayload(exitStatus === 0 ? exitCode : -1)
+      }
+    }
+
+    stdout: StdioCollector {
+      onStreamFinished: root.requestOutput = String(text || "")
+    }
+
+    stderr: StdioCollector {}
+  }
+
+  Timer {
+    id: retryTimer
+    interval: 60000
+    repeat: false
+    onTriggered: root.updateWeather()
+  }
+
+  property string apiKeySaveError: ""
+
+  Process {
     id: saveApiKeyProcess
     running: false
-    command: ["sh", "-c", "umask 077; mkdir -p \"$1\"; IFS= read -r api_key; printf '%s\\n' \"$api_key\" > \"$2\"; chmod 600 \"$2\"", "sh", Directories.shellConfig, Directories.weatherApiKeyPath]
+    stdinEnabled: true
+    command: ["sh", "-c", "set -e; umask 077; mkdir -p \"$1\"; IFS= read -r api_key; printf '%s\\n' \"$api_key\" > \"$2\"; chmod 600 \"$2\"", "sh", Directories.shellConfig, Directories.weatherApiKeyPath]
+
+    onStarted: {
+      write(root.pendingApiKey + "\n")
+      stdinEnabled = false
+    }
+    onExited: (exitCode, exitStatus) => {
+      if (exitCode !== 0 || exitStatus !== 0)
+        root.apiKeySaveError = "Could not save WeatherAPI key"
+      else {
+        root.apiKeySaveError = ""
+        root.fileApiKey = root.pendingApiKey
+      }
+      root.pendingApiKey = ""
+    }
+    onRunningChanged: {
+      if (!running && root.pendingApiKey && stdinEnabled) {
+        root.apiKeySaveError = "Could not start WeatherAPI key writer"
+        root.pendingApiKey = ""
+      }
+    }
+    stderr: StdioCollector {}
   }
 
   FileView {
@@ -99,29 +200,25 @@ Singleton {
     path: Directories.weatherApiKeyPath
     watchChanges: true
     printErrors: false
-
-    onLoaded: {
-      const fileKey = text().trim()
-      if (!root.apiKey && fileKey) {
-        root.apiKey = fileKey
-        root.updateWeather()
-      }
-    }
-
+    onLoaded: root.fileApiKey = text().trim()
     onFileChanged: reload()
   }
 
   function setApiKey(key) {
     const normalized = String(key || "").trim()
-    if (!normalized || !/^[A-Za-z0-9._-]+$/.test(normalized))
+    if (!normalized || !/^[A-Za-z0-9._-]+$/.test(normalized)) {
+      root.apiKeySaveError = "Enter a valid WeatherAPI key"
       return false
-
-    if (saveApiKeyProcess.running)
-      saveApiKeyProcess.running = false
+    }
+    if (saveApiKeyProcess.running || root.pendingApiKey) {
+      root.apiKeySaveError = "WeatherAPI key save is still in progress"
+      return false
+    }
+    root.apiKeySaveError = ""
+    root.fileApiKey = normalized
+    root.pendingApiKey = normalized
+    saveApiKeyProcess.stdinEnabled = true
     saveApiKeyProcess.running = true
-    saveApiKeyProcess.write(normalized + "\n")
-    root.apiKey = normalized
-    root.updateWeather()
     return true
   }
 
@@ -152,6 +249,13 @@ Singleton {
   }
 
   function updateWeather() {
+    if (!root.initialized)
+      return
+    retryTimer.stop()
+    if (weatherProcess.running) {
+      root.requestQueued = true
+      return
+    }
     if (!root.apiKey) {
       root.setError(0, LanguageService.t("weather", "apiKeyError"))
       return
@@ -160,15 +264,14 @@ Singleton {
       root.setError(0, LanguageService.t("weather", "cityError"))
       return
     }
-
-    root.lang = LanguageService.normalizeLanguage(Settings.general.lang)
+    root.requestUrl = "https://api.weatherapi.com/v1/forecast.json?key=" + encodeURIComponent(root.apiKey)
+      + "&q=" + encodeURIComponent(root.location) + "&days=3&lang=" + encodeURIComponent(root.lang)
+    root.requestAttempt = 0
+    root.requestOutput = ""
     root.errorCode = 0
     root.errorMessage = ""
     root.loading = true
-    const url = "https://api.weatherapi.com/v1/forecast.json?key=" + encodeURIComponent(root.apiKey)
-      + "&q=" + encodeURIComponent(root.location) + "&days=3&lang=" + root.lang
-    weatherProcess.command = ["curl", "-sS", url]
-    weatherProcess.running = true
+    root.sendRequest(weatherProcess, root.requestUrl, true)
   }
 
   Timer {
@@ -178,5 +281,8 @@ Singleton {
     onTriggered: root.updateWeather()
   }
 
-  Component.onCompleted: root.updateWeather()
+  Component.onCompleted: {
+    root.initialized = true
+    root.updateWeather()
+  }
 }
