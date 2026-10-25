@@ -1,6 +1,6 @@
 // Device item component for Bluetooth panel
 import QtQuick
-import qs.services
+import Quickshell.Bluetooth
 import QtQuick.Layouts
 import qs.components
 import qs.services
@@ -13,6 +13,37 @@ Rectangle {
     required property var adapter
 
     signal pairError(string message)
+    readonly property bool connecting: modelData?.state === BluetoothDeviceState.Connecting
+    property bool pairingRequested: false
+    property bool connectionRequested: false
+
+    function pairDevice() {
+        if (!modelData || modelData.paired || modelData.pairing)
+            return;
+        if (adapter && !BluetoothService.preparePairing(adapter)) {
+            pairError("Bluetooth is not ready for pairing.");
+            return;
+        }
+        pairingRequested = true;
+        try {
+            modelData.pair();
+        } catch (error) {
+            pairingRequested = false;
+            pairError(String(error));
+        }
+    }
+
+    function connectDevice() {
+        if (!modelData?.paired || modelData.connected || connecting)
+            return;
+        connectionRequested = true;
+        try {
+            modelData.connect();
+        } catch (error) {
+            connectionRequested = false;
+            pairError(String(error));
+        }
+    }
 
     width: ListView.view.width
     height: ScalerService.s(70)
@@ -95,7 +126,7 @@ Rectangle {
 
             CustomText {
                 name: {
-                    if (modelData?.connecting)
+                    if (delegateRoot.connecting)
                         return lang?.bluetooth?.connecting || "Connecting...";
                     if (modelData?.connected)
                         return lang?.bluetooth?.connected || "Connected";
@@ -104,7 +135,7 @@ Rectangle {
                     return lang?.bluetooth?.not_connected || "Not connected";
                 }
                 color: {
-                    if (modelData?.connecting)
+                    if (delegateRoot.connecting)
                         return theme.normal.yellow;
                     if (modelData?.connected)
                         return theme.button.text;
@@ -126,7 +157,7 @@ Rectangle {
                 height: ScalerService.s(32)
                 radius: ScalerService.s(8)
                 color: theme.button.text
-                opacity: (modelData?.paired || modelData?.connecting) ? 1 : 0.5
+                opacity: (modelData?.paired || delegateRoot.connecting) ? 1 : 0.5
                 enabled: !modelData?.pairing
 
                 scale: connectMouseArea.containsPress ? 0.9 : (connectMouseArea.containsMouse ? 1.1 : 1.0)
@@ -144,13 +175,13 @@ Rectangle {
 
                 IconText {
                     anchors.centerIn: parent
-                    name: modelData?.connecting ? "hourglass_bottom" : modelData?.connected ? "bluetooth_connected" : "attachment"
+                    name: delegateRoot.connecting ? "hourglass_bottom" : modelData?.connected ? "bluetooth_connected" : "attachment"
                     textColor: theme.primary.background
                     size: "small"
 
-                    rotation: modelData?.connecting ? 360 : 0
+                    rotation: delegateRoot.connecting ? 360 : 0
                     RotationAnimator on rotation {
-                        running: modelData?.connecting || false
+                        running: delegateRoot.connecting || false
                         from: 0
                         to: 360
                         duration: 1000
@@ -167,8 +198,8 @@ Rectangle {
                     onClicked: {
                         if (modelData?.connected) {
                             modelData.disconnect();
-                        } else if (modelData?.paired && !modelData?.connecting) {
-                            modelData.connect();
+                        } else if (modelData?.paired && !delegateRoot.connecting) {
+                            delegateRoot.connectDevice();
                         }
                     }
                 }
@@ -213,18 +244,7 @@ Rectangle {
                         if (modelData?.paired) {
                             modelData.forget();
                         } else {
-                            // Ensure adapter is pairable
-                            if (adapter) {
-                                adapter.pairable = true;
-                                adapter.discoverable = true;
-                            }
-
-                            // Try to pair
-                            try {
-                                modelData.pair();
-                            } catch (error) {
-                                delegateRoot.pairError(lang?.bluetooth?.pair_error || "Unable to pair with device");
-                            }
+                            delegateRoot.pairDevice();
                         }
                     }
                 }
@@ -242,12 +262,25 @@ Rectangle {
         }
     }
 
-    // Device state connections
     Connections {
         target: modelData
         function onPairingChanged() {
+            if (delegateRoot.pairingRequested && !modelData.pairing) {
+                delegateRoot.pairingRequested = false;
+                Qt.callLater(function() {
+                    if (!modelData?.paired)
+                        delegateRoot.pairError("Pairing did not complete. Check the confirmation on both devices and the Bluetooth log.");
+                });
+            }
         }
-        function onPairedChanged() {
+        function onStateChanged() {
+            if (delegateRoot.connectionRequested && modelData.state !== BluetoothDeviceState.Connecting) {
+                delegateRoot.connectionRequested = false;
+                Qt.callLater(function() {
+                    if (!modelData?.connected)
+                        delegateRoot.pairError("Connection failed. The device may not provide a supported profile; check the Bluetooth log.");
+                });
+            }
         }
     }
 

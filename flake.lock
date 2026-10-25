@@ -1,5 +1,29 @@
 {
   "nodes": {
+    "chatgptArchive": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-J6NJIYu0NXiz7914pE0dx7M6WjxTK5Q+Uh3b6PBnvnM=",
+        "type": "file",
+        "url": "file:///home/klenko/nixos/chatgpt_amd64.deb"
+      },
+      "original": {
+        "type": "file",
+        "url": "file:///home/klenko/nixos/chatgpt_amd64.deb"
+      }
+    },
+    "discordArchive": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-EyIhdkvxR//doDFXwCHVekh+u09kN0nfBlBP3tpIZUk=",
+        "type": "file",
+        "url": "file:///home/klenko/nixos/discord-full.distro"
+      },
+      "original": {
+        "type": "file",
+        "url": "file:///home/klenko/nixos/discord-full.distro"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1789149629,
@@ -18,6 +42,8 @@
     },
     "root": {
       "inputs": {
+        "chatgptArchive": "chatgptArchive",
+        "discordArchive": "discordArchive",
         "nixpkgs": "nixpkgs"
       }
     }

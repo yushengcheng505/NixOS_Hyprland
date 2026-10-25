@@ -12,7 +12,9 @@ Singleton {
 
     readonly property string themesDirectory: Quickshell.shellDir + "/assets/themes"
     readonly property string stateFilePath: Directories.shellConfigColoursPath
-    readonly property string matugenFilePath: Directories.assetsPath + "/themes/matugen.json"
+    readonly property string matugenFilePath: Directories.shellStateMatugenPath
+    readonly property string bundledMatugenFilePath: Directories.assetsPath + "/themes/matugen.json"
+    property string pendingThemeJson: ""
 
     // Thư mục cache thumbnail cố định
     readonly property string wallpaperThumbsDir: Directories.shellCacheWallpaperDir
@@ -268,11 +270,13 @@ Singleton {
         }
 
         var path = "";
-        for (var i = 0; i < themeFiles.length; i++) {
-            var fileName = themeFiles[i].split("/").pop().replace(".json", "");
-            if (fileName === name) {
-                path = themeFiles[i];
-                break;
+        if (name !== "matugen") {
+            for (var i = 0; i < themeFiles.length; i++) {
+                var fileName = themeFiles[i].split("/").pop().replace(".json", "");
+                if (fileName === name) {
+                    path = themeFiles[i];
+                    break;
+                }
             }
         }
 
@@ -315,13 +319,12 @@ Singleton {
                     changed = true;
                 }
             }
-            if (changed) {
-                stateFileView.writeAdapter();
-                createMatugenJsonFile();
-            }
-
             root._currentTheme = null;
             root.theme = getThemeFromPalette();
+            if (changed) {
+                stateFileView.writeAdapter();
+            }
+            createMatugenJsonFile();
         }
 
         root.loading = false;
@@ -466,34 +469,35 @@ Singleton {
     }
 
     function createMatugenJsonFile() {
-        const themeData = root.theme;
-        const themeJson = JSON.stringify(themeData, null, 2);
+        saveGeneratedTheme(root.theme);
+    }
 
-        var tempFile = "/tmp/matugen_temp_" + Date.now() + ".json";
-        var cmd = `echo '${themeJson.replace(/'/g, "'\"'\"'")}' > "${tempFile}" && mv "${tempFile}" "${matugenFilePath}"`;
-
-        try {
-            var writeProcess = Qt.createQmlObject(`
-                import QtQuick
-                import Quickshell.Io
-                Process {
-                    id: writeProcess
-                    command: ["bash", "-c", "${cmd.replace(/"/g, '\\"')}"]
-                    onExited: function(exitCode) {
-                        if (exitCode === 0) {
-                            console.log("matugen.json created successfully")
-                        } else {
-                            console.error("Failed to create matugen.json")
-                        }
-                        writeProcess.destroy()
-                    }
-                }
-            `, root, "CreateMatugenFileProcess");
-
-            writeProcess.running = true;
-        } catch (e) {
-            console.error("Error creating matugen.json:", e);
+    function saveGeneratedTheme(themeData) {
+        root.pendingThemeJson = JSON.stringify(themeData, null, 2);
+        if (!themeDirectoryProcess.running) {
+            themeDirectoryProcess.running = true;
         }
+    }
+
+    Process {
+        id: themeDirectoryProcess
+        command: ["mkdir", "-p", "--", Directories.shellState]
+        onExited: exitCode => {
+            if (exitCode === 0) {
+                generatedThemeWriter.setText(root.pendingThemeJson);
+            } else {
+                console.error("Failed to create generated theme directory:", stderr.text);
+            }
+        }
+        stderr: StdioCollector {}
+    }
+
+    FileView {
+        id: generatedThemeWriter
+        path: root.matugenFilePath
+        preload: false
+        atomicWrites: true
+        onSaveFailed: error => console.error("Failed to save generated theme:", error)
     }
 
     function triggerMatugenOnThemeChange(themeMode) {
@@ -649,20 +653,40 @@ Singleton {
         }
     }
 
+    function loadBundledFallback() {
+        try {
+            var data = JSON.parse(bundledThemeReader.text());
+            if (!data || !data.type || !data.primary || !data.normal) {
+                throw new Error("Invalid bundled theme");
+            }
+            root.updateColors(data);
+        } catch (e) {
+            root.updateColors(root.getFallbackTheme());
+        }
+    }
+
+    FileView {
+        id: bundledThemeReader
+        path: root.bundledMatugenFilePath
+        preload: false
+        blockLoading: true
+        printErrors: false
+    }
+
     FileView {
         id: fallbackThemeReader
+        printErrors: false
+        onLoadFailed: root.loadBundledFallback()
         onLoaded: {
             try {
-                var jsonText = text();
-                if (jsonText) {
-                    root.updateColors(JSON.parse(jsonText));
-                } else {
-                    console.error("Fallback theme file is empty");
-                    root.updateColors(root.getFallbackTheme());
+                var data = JSON.parse(text());
+                if (!data || !data.type || !data.primary || !data.normal) {
+                    throw new Error("Invalid generated theme");
                 }
+                root.updateColors(data);
             } catch (e) {
-                console.error("Fallback Theme Load Error:", e);
-                root.updateColors(root.getFallbackTheme());
+                console.warn("Fallback Theme Load Error:", e);
+                root.loadBundledFallback();
             }
         }
     }

@@ -2,7 +2,7 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, pkgs, ... }:
+{ config, pkgs, discordArchive, chatgptArchive, ... }:
 
 let
   desktopConfigLink = relativePath: entrypoint: {
@@ -55,22 +55,6 @@ let
     (cd root && find kernel -print | cpio -o -H newc --reproducible) > "$out"
   '';
 
-  bluetoothConnectable = pkgs.writeShellScript "bluetooth-connectable" ''
-    deadline=$((SECONDS + 30))
-    while (( SECONDS < deadline )); do
-      if ${pkgs.systemd}/bin/busctl --timeout=1s get-property \
-        org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable >/dev/null 2>&1 &&
-        ${pkgs.systemd}/bin/busctl --timeout=1s set-property \
-          org.bluez /org/bluez/hci0 org.bluez.Adapter1 Connectable b true >/dev/null 2>&1; then
-        printf '%s\n' 'bluetooth-connectable: adapter is connectable'
-        exit 0
-      fi
-      ${pkgs.coreutils}/bin/sleep 0.5
-    done
-    printf '%s\n' 'bluetooth-connectable: adapter setup timed out; leaving bluetoothd running' >&2
-    exit 1
-  '';
-
   # Run Spotify as a native Wayland client.  This avoids blurry XWayland
   # scaling on the laptop's fractional-scale display.
   spotifyWayland = pkgs.symlinkJoin {
@@ -89,7 +73,7 @@ let
   discordUnwrapped = pkgs.stdenvNoCC.mkDerivation {
     pname = "discord-unwrapped";
     version = "1.0.157";
-    src = ./discord-full.distro;
+    src = discordArchive;
     nativeBuildInputs = [ pkgs.brotli pkgs.gnutar ];
     dontUnpack = true;
     installPhase = ''
@@ -105,10 +89,16 @@ let
   discordDesktopItem = pkgs.makeDesktopItem {
     name = "discord";
     desktopName = "Discord";
+    genericName = "Internet Messenger";
     comment = "All-in-one voice and text chat";
-    exec = "discord -- %U";
+    exec = "discord-app -- %U";
+    tryExec = "discord-app";
     icon = "discord";
+    terminal = false;
+    startupNotify = true;
+    startupWMClass = "discord";
     categories = [ "Network" "InstantMessaging" ];
+    keywords = [ "chat" "voice" "gaming" ];
     mimeTypes = [ "x-scheme-handler/discord" ];
   };
 
@@ -139,7 +129,7 @@ let
   chatgptUnwrapped = pkgs.stdenvNoCC.mkDerivation {
     pname = "chatgpt-unwrapped";
     version = "26.901.51231";
-    src = ./chatgpt_amd64.deb;
+    src = chatgptArchive;
     nativeBuildInputs = [ pkgs.dpkg ];
     dontUnpack = true;
     installPhase = ''
@@ -151,11 +141,25 @@ let
   chatgptDesktopItem = pkgs.makeDesktopItem {
     name = "chatgpt";
     desktopName = "ChatGPT";
-    comment = "ChatGPT by OpenAI";
-    exec = "chatgpt --proxy-server=http://127.0.0.1:2080 %U";
+    genericName = "AI assistant";
+    comment = "ChatGPT by OpenAI (software rendering)";
+    exec = "chatgpt-safe %U";
+    tryExec = "chatgpt-safe";
     icon = "chatgpt";
+    startupNotify = true;
     categories = [ "Utility" "Development" ];
-    mimeTypes = [ "x-scheme-handler/codex" ];
+    mimeTypes = [
+      "x-scheme-handler/codex"
+      "x-scheme-handler/http"
+      "x-scheme-handler/https"
+      "text/csv"
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      "text/tab-separated-values"
+      "application/vnd.ms-excel"
+      "application/vnd.ms-excel.sheet.macroEnabled.12"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ];
   };
 
   chatgpt = pkgs.buildFHSEnv {
@@ -191,6 +195,63 @@ let
         $out/share/icons/hicolor/512x512/apps/chatgpt.png
       ln -s ${chatgptDesktopItem}/share/applications $out/share/applications
       ln -s $out/bin/ChatGPT $out/bin/chatgpt
+    '';
+  };
+
+  discordApp = pkgs.writeShellScriptBin "discord-app" ''
+    export HTTP_PROXY=http://127.0.0.1:2080
+    export HTTPS_PROXY=http://127.0.0.1:2080
+    export ALL_PROXY=http://127.0.0.1:2080
+    exec ${discord}/bin/discord \
+      --ozone-platform=wayland \
+      --enable-features=UseOzonePlatform \
+      --force-device-scale-factor=1 \
+      "$@"
+  '';
+
+  telegramApp = pkgs.writeShellScriptBin "telegram-app" ''
+    export HTTP_PROXY=http://127.0.0.1:2080
+    export HTTPS_PROXY=http://127.0.0.1:2080
+    export ALL_PROXY=http://127.0.0.1:2080
+    exec ${pkgs.telegram-desktop}/bin/Telegram "$@"
+  '';
+
+  chatgptSafe = pkgs.writeShellScriptBin "chatgpt-safe" ''
+    exec ${chatgpt}/bin/chatgpt \
+      --disable-gpu \
+      --disable-gpu-compositing \
+      --disable-gpu-rasterization \
+      --ozone-platform=wayland \
+      --enable-features=UseOzonePlatform,WaylandFractionalScalingV1 \
+      --force-device-scale-factor=1 \
+      --proxy-server=http://127.0.0.1:2080 \
+      "$@"
+  '';
+
+  telegramDesktopItem = pkgs.makeDesktopItem {
+    name = "org.telegram.desktop";
+    desktopName = "Telegram";
+    genericName = "Telegram Messenger";
+    comment = "Fast and secure messaging";
+    exec = "telegram-app -- %U";
+    tryExec = "telegram-app";
+    icon = "org.telegram.desktop";
+    terminal = false;
+    startupNotify = true;
+    startupWMClass = "TelegramDesktop";
+    categories = [ "Chat" "Network" "InstantMessaging" ];
+    mimeTypes = [ "x-scheme-handler/tg" "x-scheme-handler/tonsite" ];
+    keywords = [ "tg" "chat" "im" "messaging" "messenger" ];
+    extraConfig.DBusActivatable = "false";
+  };
+
+  telegram = pkgs.symlinkJoin {
+    name = "telegram-desktop-proxy-${pkgs.telegram-desktop.version}";
+    paths = [ pkgs.telegram-desktop ];
+    postBuild = ''
+      rm "$out/share/applications/org.telegram.desktop.desktop"
+      ln -s ${telegramDesktopItem}/share/applications/org.telegram.desktop.desktop \
+        "$out/share/applications/org.telegram.desktop.desktop"
     '';
   };
 
@@ -354,6 +415,17 @@ in
 
   # Enable the modern Nix CLI and flake support system-wide.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.gc = {
+    automatic = true;
+    dates = "Sun *-*-* 15:17:00";
+    randomizedDelaySec = "30min";
+    options = "";
+  };
+  nix.optimise = {
+    automatic = true;
+    dates = [ "Sun *-*-* 16:17:00" ];
+    randomizedDelaySec = "30min";
+  };
 
   # Provide the BlueZ D-Bus service used by Quickshell's Bluetooth module.
   hardware.bluetooth = {
@@ -361,19 +433,36 @@ in
     powerOnBoot = true;
     settings = {
       General = {
-        # Quickshell does not provide a BlueZ agent of its own. Allow
-        # headless/Just Works pairing requests instead of rejecting them.
-        AlwaysPairable = true;
-        JustWorksRepairing = "always";
+        AlwaysPairable = false;
+        JustWorksRepairing = "confirm";
+        PairableTimeout = 120;
       };
     };
   };
 
-  # BlueZ 5.87 leaves this adapter non-connectable on power-up even though it
-  # is powered and pairable. Set the Adapter1 property through D-Bus after the
-  # daemon has registered its controller.
-  systemd.services.bluetooth.serviceConfig.ExecStartPost =
-    "-${bluetoothConnectable}";
+  services.blueman.enable = true;
+  systemd.user.services.blueman-applet = {
+    overrideStrategy = "asDropin";
+    unitConfig = {
+      After = [ "hyprland-session.target" ];
+      PartOf = [ "hyprland-session.target" ];
+      Requisite = [ "hyprland-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    serviceConfig = {
+      Environment = [
+        "GSETTINGS_SCHEMA_DIR=${pkgs.blueman}/share/gsettings-schemas/${pkgs.blueman.name}/glib-2.0/schemas"
+      ];
+      ExecStartPre = "${pkgs.glib}/bin/gsettings set org.blueman.general plugin-list \"['!TransferService', '!ConnectionNotifier', '!AutoConnect', '!DiscvManager']\"";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    wantedBy = [ "hyprland-session.target" ];
+  };
+
+  # Bluetooth is retained for pairing and audio profiles only. File transfer
+  # uses OBEX, which is intentionally disabled.
+  systemd.user.services.obex.enable = false;
 
   networking.firewall.allowedTCPPorts = [ 22 ];
 
@@ -600,9 +689,12 @@ in
 
   environment.systemPackages = [
     discord
-    pkgs.telegram-desktop
+    discordApp
+    telegram
+    telegramApp
     pkgs.codex
     chatgpt
+    chatgptSafe
     pkgs.zed-editor
     spotifyWayland
     pkgs.nodejs

@@ -519,15 +519,28 @@ Item {
         } catch (e) {}
     }
 
+    function windowAddress(window) {
+        if (!window || typeof window.id !== "string")
+            return "";
+        const address = window.id.replace(/^0x/i, "").toLowerCase();
+        if (!/^[0-9a-f]+$/.test(address) || /^0+$/.test(address))
+            return "";
+        return "0x" + address.replace(/^0+/, "");
+    }
+
     function focusWindow(window) {
         try {
-            Hyprland.dispatch(`focuswindow address:0x${window.id.toString()}`);
+            const address = windowAddress(window);
+            if (address)
+                Hyprland.dispatch(`hl.dsp.focus({ window = "address:${address}" })`);
         } catch (e) {}
     }
 
     function closeWindow(window) {
         try {
-            Hyprland.dispatch(`killwindow address:0x${window.id}`);
+            const address = windowAddress(window);
+            if (address)
+                Hyprland.dispatch(`hl.dsp.window.close({ window = "address:${address}" })`);
         } catch (e) {}
     }
 

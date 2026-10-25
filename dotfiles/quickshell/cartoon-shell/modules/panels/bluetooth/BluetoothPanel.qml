@@ -67,19 +67,9 @@ PanelWindow {
 
     property bool isDiscoverable: adapter ? adapter.discoverable : false
     property bool isPairable: adapter ? adapter.pairable : true
+    readonly property bool activeScanNeeded: visible && VisibleService.bluetooth
 
-    // Keep discovery alive while the panel is in use. BlueZ removes temporary
-    // devices shortly after discovery stops, which made the list look empty.
-    Timer {
-        id: scanTimer
-        interval: 10000
-        repeat: true
-        onTriggered: {
-            if (adapter?.enabled && !adapter.discovering) {
-                adapter.discovering = true;
-            }
-        }
-    }
+    onActiveScanNeededChanged: BluetoothService.requestScan(root, activeScanNeeded)
 
     // Show error message when pairing fails
     property string pairErrorMessage: ""
@@ -237,50 +227,6 @@ PanelWindow {
         }
     }
 
-    // Monitor adapter changes
-    Connections {
-        target: adapter
-        enabled: !!adapter
-        function onEnabledChanged() {
-            if (adapter?.enabled) {
-                // Keep the adapter ready for discovery and incoming pairing.
-                adapter.pairable = true;
-                adapter.discovering = true;
-                scanTimer.restart();
-            }
-        }
-        function onDiscoveringChanged() {
-        }
-        function onDiscoverableChanged() {
-        }
-        function onPairableChanged() {
-        }
-    }
-
-    // Monitor device list changes
-    Connections {
-        target: Bluetooth
-        function onDevicesChanged() {
-        }
-    }
-
-    Component.onCompleted: {
-        // Ensure adapter is pairable on startup
-        if (adapter && adapter.enabled) {
-            adapter.pairable = true;
-            adapter.discovering = true;
-            scanTimer.restart();
-        }
-    }
-
-    // Refresh discovery whenever the panel becomes visible.
-    Connections {
-        target: VisibleService
-        function onBluetoothChanged() {
-            if (VisibleService.bluetooth && adapter?.enabled) {
-                adapter.discovering = true;
-                scanTimer.restart();
-            }
-        }
-    }
+    Component.onCompleted: BluetoothService.requestScan(root, activeScanNeeded)
+    Component.onDestruction: BluetoothService.requestScan(root, false)
 }

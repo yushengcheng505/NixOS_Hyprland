@@ -53,11 +53,6 @@ Rectangle {
             onClicked: {
                 if (root.adapter) {
                     root.adapter.enabled = !root.adapter.enabled;
-                    if (root.adapter.enabled) {
-                        // When enabling Bluetooth, set necessary modes
-                        root.adapter.pairable = true;
-                        root.adapter.discoverable = true;
-                    }
                 }
             }
         }

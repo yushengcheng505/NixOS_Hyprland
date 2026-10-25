@@ -26,6 +26,7 @@ Singleton {
   property string weatherApiKeyPath: `${shellConfig}/weather-api-key`
   property string shellConfigNotificationsPath: `${shellConfig}/notifications.json`
   property string shellState: `${state}/${shellName}`
+  readonly property string shellStateMatugenPath: `${shellState}/matugen.json`
   property string shellCache: `${cache}/${shellName}`
   property string shellCacheNetworkPath: `${shellCache}/network.json`
   property string shellCacheImagesDir: `${shellCache}/images`

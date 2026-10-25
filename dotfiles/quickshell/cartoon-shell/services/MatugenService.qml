@@ -29,7 +29,7 @@ Singleton {
     interval: 200
     repeat: false
     onTriggered: {
-      ThemeService.loadTheme();
+      ThemeService.refresh();
     }
   }
 
@@ -94,27 +94,11 @@ Singleton {
 
   // Function to save theme to JSON file
   function saveThemeToFile(theme) {
-    var themeJson = JSON.stringify(theme, null, 2);
-    var filePath = Directories.assetsPath + "/themes/matugen.json";
-
-    var file = Qt.createQmlObject('import QtQuick; import Quickshell.Io; File { }', root);
-    file.path = filePath;
-    file.text = themeJson;
-
-    if (file.write()) {
-
-      // Update current theme to matugen if not already set
-      if (settings && settings.appearance.theme !== "matugen") {
-        settings.appearance.theme = "matugen";
-      }
-
-      // Trigger theme reload
-      reloadTimer.restart();
-    } else {
-      console.error("Failed to save theme file");
+    ThemeService.saveGeneratedTheme(theme);
+    ThemeService.updateColors(theme);
+    if (settings && settings.appearance.theme !== "matugen") {
+      settings.appearance.theme = "matugen";
     }
-
-    file.destroy();
   }
 
   // Function run matugen with JSON output
@@ -172,7 +156,7 @@ Singleton {
 
     if (currentWallpaper && currentWallpaper !== "") {
       runMatugen(currentWallpaper, themeMode);
-      ThemeService.loadTheme();
+      ThemeService.refresh();
     } else {
     }
   }
