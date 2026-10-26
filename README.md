@@ -89,12 +89,25 @@ The desktop IDs remain `discord.desktop`, `org.telegram.desktop.desktop` and `ch
 
 When migrating an existing user profile, first install the new generation with `sudo nixos-rebuild boot --flake git+file:///home/klenko/nixos#nixos`, save your work and reboot. Changing the system package profile also changes D-Bus and Quickshell dependencies; using `boot` avoids replacing them underneath the running session. Verify that `/run/current-system/sw/bin/{discord-app,telegram-app,chatgpt-safe}` exist and that the three system desktop entries reference them. Then compare and archive the old matching files from `~/.local/bin` and `~/.local/share/applications`: user desktop entries override system entries, and user binaries can shadow system wrappers. Do not remove them before activation, do not overwrite later user changes, and preserve backups outside this checkout. Running applications do not need to be restarted for this migration; future launches use the new entries after the application menu refreshes.
 
-## What is included
+## Configuration structure
 
-- NixOS system and hardware configuration;
-- Hyprland Lua configuration;
-- Quickshell Cartoon Shell configuration and assets;
-- package and service declarations, including NetworkManager and LibreOffice.
+- `configuration.nix` is the entrypoint for imports, locale, user account, audio and authorization settings.
+- `hardware-configuration.nix` contains generated filesystem and hardware-scan settings.
+- `modules/hardware-honor.nix` contains the laptop-specific DSDT initrd, input workarounds, kernel and zram settings.
+- `modules/maintenance.nix`, `modules/bluetooth.nix` and `modules/networking.nix` separate maintenance, Bluetooth and network services.
+- `modules/desktop-session.nix` manages config links, SDDM, the graphical target and its user services. `hyprland-honor-fmbp/` retains the direct-session supervisor and portal integration.
+- `modules/applications.nix` declares the application list; it deliberately precedes the Hyprland module in `imports` to preserve the existing package merge order.
+- `modules/package-manifest.nix` generates the package metadata consumed by Quickshell.
+- `pkgs/desktop-apps.nix` assembles the shared package set, with Discord, ChatGPT and Orca defined in their own files beside `pkgs/easycliproxyapi.nix`.
+- `dotfiles/` contains the Hyprland Lua and Quickshell sources and assets.
+
+A source-only reorganization should preserve the exact `system.build.toplevel` store path, not merely package versions. Check and build with the commands above before activation.
+
+## Local archives
+
+Historical `*.before-*` files and retired configuration trees belong outside this checkout, under a private `~/.local/state/nixos-archive-<timestamp>/` directory. Preserve original relative paths and a relocation manifest so individual files can be restored. They are not part of a fresh-install restore and must not be committed or included in flake inputs. Active `discord-full.distro` and `chatgpt_amd64.deb` remain at the declared local input paths.
+
+Recovery metadata and current-ref Git bundles are stored separately under `~/.local/state/nixos-order-<timestamp>/`. Cleaning old local reflog entries is separate from rewriting or force-pushing published Git history; retain the recovery snapshot before collecting unreachable Git objects.
 
 ## External dependencies not stored here
 
