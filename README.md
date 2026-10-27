@@ -4,43 +4,54 @@ This repository contains the declarative NixOS, Hyprland, and Quickshell configu
 
 ## Restore on a fresh NixOS installation
 
-The commands below assume that the target machine uses the `nixos` hostname, an `x86_64-linux` system, and a fresh NixOS install where the user account `klenko` and its home directory `/home/klenko` have already been created (by the installer or manually).
+The examples below use the `nixos` configuration name, an `x86_64-linux` system, and an existing regular user account. Run the commands from that user's shell, not a root shell. `$HOME` refers to their home directory.
 
-Clone the repository as that user into a checkout under the home directory — not into `/etc/nixos`. The desktop configuration is symlinked to this tree; keep it user-writable for source edits. Generated themes and application state live outside the checkout.
+Clone the repository into a checkout under the home directory — not into `/etc/nixos`. The desktop configuration is symlinked to this tree; keep it user-writable for source edits. Generated themes and application state live outside the checkout.
 
 ```bash
-git clone https://github.com/yushengcheng505/NixOS_Hyprland /home/klenko/nixos
-cd /home/klenko/nixos
+git clone https://github.com/yushengcheng505/NixOS_Hyprland "$HOME/nixos"
+cd "$HOME/nixos"
 ```
 
-Before building, place the two local installer archives in the repository root. They are not committed to the repository and there is no download URL for them. The flake loads them as separate, hash-locked file inputs at these exact paths:
+### Adapt the host-specific settings first
 
-- `/home/klenko/nixos/discord-full.distro` — Discord 1.0.157; SHA-256 `7c3ab8a0cde6f707aea44b7fce055acafc62d2946058a3a77d48c3329229a41d`
-- `/home/klenko/nixos/chatgpt_amd64.deb` — ChatGPT 26.901.51231; SHA-256 `62580188d87c3d3a9369dab7c73b42a8a32518d4df8a2d5bae6466ddeac5c05e`
+This is a configuration for a particular laptop, not a universal installer. The examples use portable paths, but the Nix configuration still contains host-specific account and path settings. Before deploying on another installation:
 
-Verify the archive hashes, then evaluate and build the configuration without creating a `result` link:
+- Review the user account and the matching authorization rule in `configuration.nix`.
+- Adapt the checkout path, home directory references and file ownership in `modules/desktop-session.nix`.
+- Set the PAC service's `ConditionUser` in `modules/networking.nix` to the intended desktop account.
+- Review the default display name in `dotfiles/quickshell/cartoon-shell/commons/Settings.qml`.
+- Update both local archive URLs in `flake.nix` to the chosen checkout and update only their corresponding lock entries. Do not change the nixpkgs revision as part of a path adjustment.
+- Review `hardware-configuration.nix` and the laptop-specific workarounds before using a different machine.
+
+Place the two local installer archives in the repository root. They are not committed to the repository and there is no download URL for them. The flake loads them as separate, hash-locked file inputs:
+
+- `discord-full.distro` — Discord 1.0.157; SHA-256 `7c3ab8a0cde6f707aea44b7fce055acafc62d2946058a3a77d48c3329229a41d`
+- `chatgpt_amd64.deb` — ChatGPT 26.901.51231; SHA-256 `62580188d87c3d3a9369dab7c73b42a8a32518d4df8a2d5bae6466ddeac5c05e`
+
+After adapting the settings, verify the archive hashes, then evaluate and build the configuration without creating a `result` link:
 
 ```bash
 sha256sum discord-full.distro chatgpt_amd64.deb
-nix flake check --no-update-lock-file git+file:///home/klenko/nixos
-nix build --no-link --print-out-paths --no-update-lock-file git+file:///home/klenko/nixos#nixosConfigurations.nixos.config.system.build.toplevel
+nix flake check --no-update-lock-file "git+file://$HOME/nixos"
+nix build --no-link --print-out-paths --no-update-lock-file "git+file://$HOME/nixos#nixosConfigurations.nixos.config.system.build.toplevel"
 ```
 
-If the build succeeds, apply it later as root:
+If the build succeeds, apply it later as root. The invoking user's shell expands `$HOME` before `sudo` runs:
 
 ```bash
-sudo nixos-rebuild switch --flake git+file:///home/klenko/nixos#nixos
+sudo nixos-rebuild switch --flake "git+file://$HOME/nixos#nixos"
 ```
 
-On a fresh restore, finish by setting the user password:
+On a fresh restore, finish by setting the intended user's password. From that user's shell:
 
 ```bash
-sudo passwd klenko
+sudo passwd "$USER"
 ```
 
 ### Git source snapshots and local archives
 
-Use `git+file:///home/klenko/nixos`, not `path:/home/klenko/nixos`. The Git flake snapshots tracked files, including their local modifications, but excludes `.git`, untracked backups, ignored installer archives and `result` links. New source files must be added to the Git index before Nix can see them. No commit is needed to build modified tracked files. Review the index before any commit; never add credentials or installer archives.
+Use `git+file://$HOME/nixos`, not `path:$HOME/nixos`. The Git flake snapshots tracked files, including their local modifications, but excludes `.git`, untracked backups, ignored installer archives and `result` links. New source files must be added to the Git index before Nix can see them. No commit is needed to build modified tracked files. Review the index before any commit; never add credentials or installer archives.
 
 The two archives are fetched separately through `file+file:` inputs declared with `flake = false`. Their NAR hashes in `flake.lock` pin their contents; `builtins.path` restores their original filenames for unchanged package derivations. Moving the checkout requires updating both local input URLs. Replacing an archive requires an intentional update of that input's lock and package version, not a blanket nixpkgs update.
 
@@ -52,8 +63,8 @@ A `path:` flake still copies the entire directory, including `.git` and ignored 
 
 Activation scripts symlink the desktop configuration into the user home:
 
-- `/home/klenko/.config/hypr` → `/home/klenko/nixos/dotfiles/hypr`
-- `/home/klenko/.config/quickshell/cartoon-shell` → `/home/klenko/nixos/dotfiles/quickshell/cartoon-shell`
+- `$HOME/.config/hypr` → `$HOME/nixos/dotfiles/hypr`
+- `$HOME/.config/quickshell/cartoon-shell` → `$HOME/nixos/dotfiles/quickshell/cartoon-shell`
 
 The activation script is deliberately strict:
 
@@ -67,11 +78,11 @@ Generated matugen themes are written atomically to `${XDG_STATE_HOME:-$HOME/.loc
 
 Select **Hyprland** in SDDM. This configuration does not use UWSM. The session launcher retains upstream `start-hyprland` and its watchdog, and stops `hyprland-session.target` when the launcher exits. A runtime lock prevents a second managed direct session for the same user. Cleanup cannot be guaranteed if the launcher itself is killed with SIGKILL.
 
-On compositor readiness, `hyprland-session-ready` stops stale session services, imports the display/session environment into the user manager and D-Bus activation environment, resets only failed session services, then starts the target. Its dependency starts `graphical-session.target`; neither target needs to be active before readiness runs. Quickshell, hypridle, EasyCLIProxyAPI and the standard portal services are attached to that target. The headless Throne PAC server remains independent of the graphical session and runs only for `klenko`, so the SDDM user manager cannot start a competing listener on port 18765. Readiness diagnostics are recorded in `journalctl -b -t hyprland-session-ready`.
+On compositor readiness, `hyprland-session-ready` stops stale session services, imports the display/session environment into the user manager and D-Bus activation environment, resets only failed session services, then starts the target. Its dependency starts `graphical-session.target`; neither target needs to be active before readiness runs. Quickshell, hypridle, EasyCLIProxyAPI and the standard portal services are attached to that target. The headless Throne PAC server remains independent of the graphical session and runs only for the configured desktop account, so the SDDM user manager cannot start a competing listener on port 18765. Readiness diagnostics are recorded in `journalctl -b -t hyprland-session-ready`.
 
 Applications started from the launcher and links opened from the dashboard use `app2unit -t service -C`, so they run in separate user services and survive a Quickshell restart. They still stop with the graphical session. Applications started before this change may remain in Quickshell's cgroup: do not restart the shell while they contain unsaved work. Shell helper processes intentionally remain attached to `quickshell.service`.
 
-For changes to session management, prefer `sudo nixos-rebuild boot --flake git+file:///home/klenko/nixos#nixos`, then save your work and reboot. This avoids replacing portal and GUI services in the running session. Later, also test logout and login without rebooting. Do not manually run the readiness helper from a terminal outside the intended compositor environment. Check `systemctl --user --failed`, `qs list --all`, and actual Discord screen sharing after the new login. A successful build alone does not verify logout/login cleanup or screen capture.
+For changes to session management, prefer `sudo nixos-rebuild boot --flake "git+file://$HOME/nixos#nixos"`, then save your work and reboot. This avoids replacing portal and GUI services in the running session. Later, also test logout and login without rebooting. Do not manually run the readiness helper from a terminal outside the intended compositor environment. Check `systemctl --user --failed`, `qs list --all`, and actual Discord screen sharing after the new login. A successful build alone does not verify logout/login cleanup or screen capture.
 
 ## Maintenance
 
@@ -87,7 +98,7 @@ NixOS provides `discord-app`, `telegram-app` and `chatgpt-safe` in the system pr
 
 The desktop IDs remain `discord.desktop`, `org.telegram.desktop.desktop` and `chatgpt.desktop`. Telegram's desktop entry disables D-Bus activation so opening it cannot silently bypass the proxy wrapper. Existing MIME defaults are not changed by installing these entries.
 
-When migrating an existing user profile, first install the new generation with `sudo nixos-rebuild boot --flake git+file:///home/klenko/nixos#nixos`, save your work and reboot. Changing the system package profile also changes D-Bus and Quickshell dependencies; using `boot` avoids replacing them underneath the running session. Verify that `/run/current-system/sw/bin/{discord-app,telegram-app,chatgpt-safe}` exist and that the three system desktop entries reference them. Then compare and archive the old matching files from `~/.local/bin` and `~/.local/share/applications`: user desktop entries override system entries, and user binaries can shadow system wrappers. Do not remove them before activation, do not overwrite later user changes, and preserve backups outside this checkout. Running applications do not need to be restarted for this migration; future launches use the new entries after the application menu refreshes.
+When migrating an existing user profile, first install the new generation with `sudo nixos-rebuild boot --flake "git+file://$HOME/nixos#nixos"`, save your work and reboot. Changing the system package profile also changes D-Bus and Quickshell dependencies; using `boot` avoids replacing them underneath the running session. Verify that `/run/current-system/sw/bin/{discord-app,telegram-app,chatgpt-safe}` exist and that the three system desktop entries reference them. Then compare and archive the old matching files from `~/.local/bin` and `~/.local/share/applications`: user desktop entries override system entries, and user binaries can shadow system wrappers. Do not remove them before activation, do not overwrite later user changes, and preserve backups outside this checkout. Running applications do not need to be restarted for this migration; future launches use the new entries after the application menu refreshes.
 
 ## Configuration structure
 
@@ -118,6 +129,6 @@ This is not a byte-for-byte system image. The following components are intention
 - Hermes Agent package, user profile, service state, and authentication data;
 - user data, application profiles, and secrets.
 
-The current `configuration.nix` expects the Discord and ChatGPT archives to be present in `/home/klenko/nixos` when building. Obtain those files separately and verify their versions before running `nixos-rebuild`. Hermes Agent must likewise be installed and configured separately after the system restore.
+The current `configuration.nix` expects the Discord and ChatGPT archives to be present in `$HOME/nixos` when building. Obtain those files separately and verify their versions before running `nixos-rebuild`. Hermes Agent must likewise be installed and configured separately after the system restore.
 
 Do not commit API keys, GitHub credentials, SSH keys, Wi-Fi profiles, Hermes authentication files, cookies, or other secrets to this public repository. Keep them outside the checkout: tracked files enter the world-readable Nix store, and accidentally using a `path:` reference also imports ignored and untracked files.
