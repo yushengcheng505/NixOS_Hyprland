@@ -11,7 +11,7 @@ import qs.commons
 
 Item {
   id: root
-  property var mprisPlayer: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+  readonly property var mprisPlayer: Players.mprisPlayer
   property string currentSong: LanguageService.t("music", "notPlaying")
   property string currentArtist: LanguageService.t("music", "unknownArtist")
   property real animationProgress: 0
@@ -108,7 +108,7 @@ Item {
               id: albumImage
               anchors.fill: parent
               source: Players.getArtUrl(Players.mprisPlayer)
-
+              sourceSize: Qt.size(320, 320)
               fillMode: Image.PreserveAspectCrop
               visible: status === Image.Ready
               cache: false

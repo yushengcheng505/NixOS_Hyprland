@@ -4,25 +4,110 @@ import QtQml
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import qs.commons
 
 Singleton {
   id: root
 
-  readonly property var mprisPlayer: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+  readonly property var mprisPlayer: {
+    let selected = null;
+    let highestPriority = -1;
+    for (const player of Mpris.players.values) {
+      const state = player.playbackState;
+      const priority = state === MprisPlaybackState.Playing ? 2 : state === MprisPlaybackState.Paused ? 1 : 0;
+      if (priority > highestPriority) {
+        selected = player;
+        highestPriority = priority;
+      }
+    }
+    return selected;
+  }
 
-  function getArtUrl(player: MprisPlayer): string {
+  readonly property string artUrl: getRemoteArtUrl(mprisPlayer)
+  property string artSource: ""
+  property string requestedArtUrl: ""
+  property bool artBusy: false
+  property bool artReady: false
+
+  onArtUrlChanged: {
+    root.artSource = "";
+    artRetry.stop();
+    if (root.artReady)
+      root.loadArt();
+  }
+
+  function getRemoteArtUrl(player: MprisPlayer): string {
     if (!player)
-    return "";
+      return "";
     if (player.trackArtUrl)
-    return player.trackArtUrl;
-
+      return player.trackArtUrl;
     const url = player.metadata["xesam:url"] ?? "";
     if (url.startsWith("https://www.youtube.com/watch")) {
-      // Fallback for youtube
       const id = url.match(/[?&]v=([\w-]{11})/)?.[1];
       return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
     }
     return "";
+  }
+
+  function getArtUrl(player: MprisPlayer): string {
+    return player === root.mprisPlayer ? root.artSource : "";
+  }
+
+  function loadArt() {
+    if (root.artBusy)
+      return;
+    if (!/^https?:\/\//i.test(root.artUrl)) {
+      root.artSource = /^(file:|image:|qrc:|\/)/.test(root.artUrl) ? root.artUrl : "";
+      return;
+    }
+    root.requestedArtUrl = root.artUrl;
+    root.artBusy = true;
+    artProcess.stdinEnabled = true;
+    artProcess.running = true;
+  }
+
+  Process {
+    id: artProcess
+    command: ["python3", Directories.scriptsPath + "/album-art.py", Directories.shellCacheImagesDir + "/album-art"]
+    onStarted: {
+      write(root.requestedArtUrl + "\n");
+      stdinEnabled = false;
+    }
+    onRunningChanged: {
+      if (!running && root.artBusy && stdinEnabled) {
+        root.artBusy = false;
+        artRetry.restart();
+      }
+    }
+    stdout: StdioCollector {}
+    stderr: StdioCollector {}
+    onExited: (exitCode, exitStatus) => {
+      root.artBusy = false;
+      if (root.requestedArtUrl !== root.artUrl) {
+        root.loadArt();
+        return;
+      }
+      let source = "";
+      if (exitCode === 0 && exitStatus === 0) {
+        try {
+          source = JSON.parse(artProcess.stdout.text).source || "";
+        } catch (e) {}
+      }
+      root.artSource = source;
+      if (!source)
+        artRetry.restart();
+    }
+  }
+
+  Timer {
+    id: artRetry
+    interval: 60000
+    onTriggered: root.loadArt()
+  }
+
+  Component.onCompleted: {
+    root.artReady = true;
+    root.loadArt();
   }
   function getProgress() {
     if (!root.mprisPlayer)

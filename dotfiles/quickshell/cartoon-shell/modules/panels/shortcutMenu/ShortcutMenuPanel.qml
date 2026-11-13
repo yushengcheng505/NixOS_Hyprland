@@ -18,8 +18,7 @@ PanelWindow {
 
     property string selectedCategory: "All"
 
-    // Danh sách Category
-    readonly property var categoryList: ["Accessories", "Programming", "Graphics", "Internet", "Office", "Sound & Video", "System", "Preferences", "Other"]
+    readonly property var categoryList: ApplicationLauncher.categories.filter(category => category !== "All")
 
     SequentialAnimation on animationProgress {
         running: true

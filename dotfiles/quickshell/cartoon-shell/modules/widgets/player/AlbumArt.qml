@@ -42,6 +42,7 @@ Item {
                 id: albumImage
                 anchors.fill: parent
                 source: Players.getArtUrl(Players.mprisPlayer)
+                sourceSize: Qt.size(200, 200)
                 fillMode: Image.PreserveAspectCrop
                 visible: status === Image.Ready
                 cache: false

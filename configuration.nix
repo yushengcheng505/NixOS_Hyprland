@@ -11,6 +11,7 @@
     ./modules/networking.nix
     ./modules/desktop-session.nix
     ./modules/package-manifest.nix
+    ./modules/local-llm.nix
   ];
 
   _module.args.desktopApps = import ./pkgs/desktop-apps.nix {

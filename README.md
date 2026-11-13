@@ -100,6 +100,16 @@ The desktop IDs remain `discord.desktop`, `org.telegram.desktop.desktop` and `ch
 
 When migrating an existing user profile, first install the new generation with `sudo nixos-rebuild boot --flake "git+file://$HOME/nixos#nixos"`, save your work and reboot. Changing the system package profile also changes D-Bus and Quickshell dependencies; using `boot` avoids replacing them underneath the running session. Verify that `/run/current-system/sw/bin/{discord-app,telegram-app,chatgpt-safe}` exist and that the three system desktop entries reference them. Then compare and archive the old matching files from `~/.local/bin` and `~/.local/share/applications`: user desktop entries override system entries, and user binaries can shadow system wrappers. Do not remove them before activation, do not overwrite later user changes, and preserve backups outside this checkout. Running applications do not need to be restarted for this migration; future launches use the new entries after the application menu refreshes.
 
+## Application menu groups
+
+The launcher uses `All`, `Work`, `Internet`, `Office`, `Sound & Video`, `System`, `Preferences` and `Study`. Category names and desktop-ID overrides are shared through `services/ApplicationLauncher.qml`, including the shortcut menu, so upstream desktop categories cannot move explicitly assigned applications unexpectedly.
+
+Work includes the development applications, Hermes, Orca and the Penpot MCP start/stop actions. Study includes the laboratory Debian launcher and Virtual Machine Manager. Bluetooth tools, Files and the Loupe image viewer belong to System; LibreOffice Draw stays with the other Office applications. Trayscale provides an on-demand graphical Tailscale interface in Internet; the existing Tailscale daemon remains the only VPN service.
+
+Trayscale requires the configured desktop account to be a Tailscale operator. `modules/networking.nix` applies this through `services.tailscale.extraSetFlags`; the role grants local control of Tailscale without general administrator rights. For an existing installation, `sudo tailscale set --operator="$USER"` applies the same permission immediately without resetting DNS, routes or connection settings. Run it from the intended user's shell, not a root shell. Do not run the graphical client as root.
+
+Firefox and the optional XTerm package are not installed by this configuration. Disabling Firefox does not delete existing browser profiles. Application installation/removal requires activating the rebuilt NixOS generation; menu-only QML changes can reload in the existing session.
+
 ## Configuration structure
 
 - `configuration.nix` is the entrypoint for imports, locale, user account, audio and authorization settings.

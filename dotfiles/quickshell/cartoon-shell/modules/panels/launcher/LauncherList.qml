@@ -21,32 +21,10 @@ Rectangle {
     property string selectedCategory: "All"
     property int currentIndex: 0
 
-    // Categories shown in the launcher. Development apps take priority over
-    // the generic Utility category below, so they stay in Programming.
-    readonly property var categoryList: ["All", "Programming", "Graphics", "Internet", "Office", "Sound & Video", "System", "Preferences", "Other"]
+    readonly property var categoryList: ApplicationLauncher.categories
 
     function getAppCategory(desktopEntry) {
-        if (!desktopEntry || !desktopEntry.categories)
-            return "Other";
-
-        const cats = desktopEntry.categories;
-
-        if (cats.includes("Development"))
-            return "Programming";
-        if (cats.includes("Graphics"))
-            return "Graphics";
-        if (cats.includes("Network"))
-            return "Internet";
-        if (cats.includes("Office"))
-            return "Office";
-        if (cats.includes("AudioVideo") || cats.includes("Audio") || cats.includes("Video"))
-            return "Sound & Video";
-        if (cats.includes("System"))
-            return "System";
-        if (cats.includes("Settings"))
-            return "Preferences";
-
-        return "Other";
+        return ApplicationLauncher.categoryFor(desktopEntry);
     }
 
     signal appLaunched

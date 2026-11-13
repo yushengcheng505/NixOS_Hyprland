@@ -19,7 +19,7 @@ in
     spotifyWayland
     pkgs.nodejs
     (pkgs.writeShellScriptBin "kimi" ''
-      exec ${pkgs.nodejs}/bin/npx --yes @moonshot-ai/kimi-code@latest "$@"
+      exec ${pkgs.nodejs}/bin/npx --offline --yes @moonshot-ai/kimi-code@latest "$@"
     '')
     pkgs.google-chrome
     chromeAuto
@@ -35,8 +35,13 @@ in
     pkgs.bluez
     orcaIde
     easycliproxyapi
+    pkgs.loupe
+    pkgs.trayscale
+    pkgs.dosbox-x
+    desktopApps.osisAsm
   ];
 
-  programs.firefox.enable = true;
+  programs.firefox.enable = false;
   programs.nix-ld.enable = true;
+  services.flatpak.enable = true;
 }

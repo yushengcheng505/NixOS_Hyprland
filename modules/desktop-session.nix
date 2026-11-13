@@ -52,6 +52,8 @@ in
   system.activationScripts.quickshellConfigLink = desktopConfigLink "quickshell/cartoon-shell" "shell.qml";
   services.logind.settings.Login.IdleAction = "ignore";
   services.xserver.enable = true;
+  services.xserver.desktopManager.xterm.enable = false;
+  services.xserver.excludePackages = [ pkgs.xterm ];
   services.displayManager.sddm.enable = true;
   services.xserver.xkb = {
     layout = "us,ru";

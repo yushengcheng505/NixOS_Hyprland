@@ -129,4 +129,5 @@ in
   inherit chromeAuto chromeProxy chromeDirect chromeAutoDesktop chromeProxyDesktop chromeDirectDesktop;
   orcaIde = import ./orca.nix { inherit pkgs; };
   easycliproxyapi = pkgs.callPackage ./easycliproxyapi.nix { };
+  osisAsm = import ./osis-asm.nix { inherit pkgs; };
 }

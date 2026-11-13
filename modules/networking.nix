@@ -1,8 +1,11 @@
-{ pkgs, desktopApps, ... }:
+{ config, pkgs, desktopApps, ... }:
 
 {
   services.openssh.enable = true;
-  services.tailscale.enable = true;
+  services.tailscale = {
+    enable = true;
+    extraSetFlags = [ "--operator=${config.users.users.klenko.name}" ];
+  };
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.allowedTCPPorts = [ 22 ];
